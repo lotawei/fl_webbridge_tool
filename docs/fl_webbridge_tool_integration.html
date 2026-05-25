@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>fl_webbridge_tool 集成手册</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #172033;
+      --muted: #667085;
+      --line: #e4e7ec;
+      --panel: #f7f9fc;
+      --brand: #2563eb;
+      --code: #101828;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--ink);
+      background: #ffffff;
+      line-height: 1.65;
+    }
+    header {
+      padding: 40px 24px 28px;
+      border-bottom: 1px solid var(--line);
+      background: linear-gradient(180deg, #f8fbff 0%, #ffffff 100%);
+    }
+    main {
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 28px 24px 56px;
+    }
+    h1, h2, h3 { line-height: 1.25; }
+    h1 { max-width: 980px; margin: 0 auto 10px; font-size: 34px; }
+    header p { max-width: 980px; margin: 0 auto; color: var(--muted); }
+    h2 {
+      margin-top: 34px;
+      padding-top: 24px;
+      border-top: 1px solid var(--line);
+      font-size: 24px;
+    }
+    h3 { margin-top: 22px; font-size: 18px; }
+    p, li { color: #344054; }
+    code {
+      padding: 2px 5px;
+      border-radius: 4px;
+      background: #eef4ff;
+      color: #1849a9;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.92em;
+    }
+    pre {
+      margin: 14px 0;
+      padding: 16px;
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--code);
+      color: #f9fafb;
+      font-size: 13px;
+      line-height: 1.55;
+    }
+    pre code {
+      padding: 0;
+      background: transparent;
+      color: inherit;
+    }
+    .note {
+      margin: 18px 0;
+      padding: 14px 16px;
+      border-left: 4px solid var(--brand);
+      background: var(--panel);
+      color: #344054;
+    }
+    .checklist li { margin: 7px 0; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+      gap: 12px;
+      margin: 16px 0;
+    }
+    .tile {
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #ffffff;
+    }
+    .tile strong { display: block; margin-bottom: 6px; }
+    footer {
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 0 24px 36px;
+      color: var(--muted);
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>fl_webbridge_tool 集成手册</h1>
+    <p>把 Flutter App 做成可承载业务网页的壳，并提供 BR_Web 双向通信、生命周期记录、拍照、录音、文件选择和容器关闭能力。</p>
+  </header>
+
+  <main>
+    <h2>0. 插件仓库结构</h2>
+    <p><code>fl_webbridge_tool</code> 使用 Flutter 官方插件仓库形态，根目录是插件本体，<code>example/</code> 是一个独立宿主工程。</p>
+    <pre><code>fl_webbridge_tool/
+  android/        # Android 插件注册代码
+  ios/            # iOS 插件注册代码
+  lib/            # Dart API 和 BR_Web 容器实现
+  example/        # 示例宿主 App，使用 fl_webbridge_tool: path: ../
+  docs/           # 集成手册和方案文档
+  pubspec.yaml    # 包含 flutter.plugin.platforms</code></pre>
+
+    <h2>1. 适用场景</h2>
+    <div class="grid">
+      <div class="tile">
+        <strong>Flutter 壳工程</strong>
+        原生 TabBar、路由、登录态、权限和日志由 Flutter 管。
+      </div>
+      <div class="tile">
+        <strong>网页业务容器</strong>
+        高频业务页面放在 H5 / Web 页面里，通过 Bridge 调原生能力。
+      </div>
+      <div class="tile">
+        <strong>可插拔能力</strong>
+        业务项目可以注册自己的 token、分享、支付、定位等 handler。
+      </div>
+    </div>
+
+    <h2>2. 添加依赖</h2>
+    <p>如果本地调试当前插件仓库，在外部业务工程中可以使用 path 依赖：</p>
+    <pre><code>dependencies:
+  fl_webbridge_tool:
+    path: ../fl_webbridge_tool</code></pre>
+
+    <p>当前仓库自带的 <code>example/</code> 用的是父目录依赖：</p>
+    <pre><code>dependencies:
+  fl_webbridge_tool:
+    path: ../</code></pre>
+
+    <p>如果发布到 Git 仓库，可以这样接：</p>
+    <pre><code>dependencies:
+  fl_webbridge_tool:
+    git:
+      url: ssh://your-git/fl_webbridge_tool.git
+      ref: v0.1.0</code></pre>
+
+    <h2>3. Flutter 页面接入</h2>
+    <p>线上 URL 接入：</p>
+    <pre><code>import 'package:fl_webbridge_tool/fl_webbridge_tool.dart';
+
+BRWebContainerPage(
+  title: '业务页面',
+  initialUrl: 'https://your-domain.example/page',
+  onLifecycle: (event) {
+    // 上报 APM、埋点、Debug console
+  },
+);</code></pre>
+
+    <p>离线包或本地 assets 接入：</p>
+    <pre><code>BRWebContainerPage(
+  title: '离线业务页面',
+  initialFile: 'assets/h5/demo.html',
+);</code></pre>
+
+    <div class="note">
+      示例工程已经完成集成，入口在 <code>example/lib/main.dart</code>，依赖配置是 <code>fl_webbridge_tool: path: ../</code>。
+    </div>
+
+    <h2>4. 网页侧调用 Flutter</h2>
+    <p>网页侧统一调用 <code>BR_WebNativeBridge</code>，请求体包含 <code>id</code>、<code>action</code>、<code>params</code>。</p>
+    <pre><code>window.BR_WebContainer = {
+  call(action, params = {}) {
+    const message = {
+      id: `${Date.now()}_${Math.random().toString(16).slice(2)}`,
+      action,
+      params
+    };
+    return window.flutter_inappwebview.callHandler(
+      'BR_WebNativeBridge',
+      message
+    );
+  },
+  __nativeCall(payload) {
+    console.log('Flutter 调用网页', payload);
+    return { received: true };
+  }
+};</code></pre>
+
+    <h3>内置 action</h3>
+    <pre><code>await BR_WebContainer.call('device.camera.takePhoto', {
+  quality: 80,
+  maxWidth: 1600
+});
+
+await BR_WebContainer.call('device.file.pick', {
+  multiple: true
+});
+
+await BR_WebContainer.call('device.audio.startRecord');
+await BR_WebContainer.call('device.audio.stopRecord');
+
+await BR_WebContainer.call('container.close', {
+  reason: 'h5_request'
+});</code></pre>
+
+    <h2>5. Flutter 主动调用网页</h2>
+    <p>在 <code>onCreated</code> 中拿到 <code>BRWebBridge</code>，之后可以调用网页方法。</p>
+    <pre><code>BRWebBridge? bridge;
+
+BRWebContainerPage(
+  initialUrl: 'https://your-domain.example/page',
+  onCreated: (createdBridge, controller) {
+    bridge = createdBridge;
+  },
+);
+
+await bridge?.callWeb('native.ping', {
+  'time': DateTime.now().toIso8601String(),
+});</code></pre>
+
+    <h2>6. 扩展业务能力</h2>
+    <p>业务工程只需要实现 <code>BRWebCapabilityHandler</code>，未处理的 action 返回 <code>BRWebCapabilityHandlerResult.notHandled</code>。</p>
+    <pre><code>class AppCapabilityHandler implements BRWebCapabilityHandler {
+  @override
+  Future&lt;Object?&gt; handle(
+    BuildContext context,
+    BRWebBridgeMessage message,
+  ) async {
+    if (message.action == 'user.getToken') {
+      return {'token': 'your-token'};
+    }
+    return BRWebCapabilityHandlerResult.notHandled;
+  }
+}
+
+BRWebContainerPage(
+  initialUrl: 'https://your-domain.example/page',
+  capabilityHandler: CompositeBRWebCapabilityHandler([
+    AppCapabilityHandler(),
+    DefaultBRWebCapabilityHandler(),
+  ]),
+);</code></pre>
+
+    <h2>7. 平台权限配置</h2>
+    <h3>Android</h3>
+    <pre><code>&lt;uses-permission android:name="android.permission.INTERNET"/&gt;
+&lt;uses-permission android:name="android.permission.CAMERA"/&gt;
+&lt;uses-permission android:name="android.permission.RECORD_AUDIO"/&gt;
+&lt;uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32"/&gt;
+&lt;uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/&gt;
+&lt;uses-permission android:name="android.permission.READ_MEDIA_VIDEO"/&gt;
+&lt;uses-permission android:name="android.permission.READ_MEDIA_AUDIO"/&gt;</code></pre>
+
+    <h3>iOS</h3>
+    <pre><code>&lt;key&gt;NSCameraUsageDescription&lt;/key&gt;
+&lt;string&gt;用于网页调用原生拍照能力。&lt;/string&gt;
+&lt;key&gt;NSMicrophoneUsageDescription&lt;/key&gt;
+&lt;string&gt;用于网页调用原生录音能力。&lt;/string&gt;
+&lt;key&gt;NSPhotoLibraryUsageDescription&lt;/key&gt;
+&lt;string&gt;用于网页选择或上传本地文件。&lt;/string&gt;</code></pre>
+
+    <h2>8. 验证清单</h2>
+    <ul class="checklist">
+      <li>运行 <code>flutter pub get</code>，确认 example 依赖到 <code>fl_webbridge_tool</code>。</li>
+      <li>运行 <code>flutter analyze</code>，确认静态分析通过。</li>
+      <li>运行 <code>flutter test</code>，确认 example smoke test 通过。</li>
+      <li>真机打开 BR_Web tab，观察日志页是否记录 created、loadStart、loadStop、console。</li>
+      <li>真机分别测试拍照、选择文件、录音开始/停止、关闭容器。</li>
+    </ul>
+
+    <h2>9. 性能建议</h2>
+    <ul>
+      <li>Tab 场景使用 <code>IndexedStack</code> 缓存 WebView，避免频繁销毁重建。</li>
+      <li>大文件不要通过 Bridge 传 base64，优先传 path、id 或上传任务 token。</li>
+      <li>日志要采样上报，高频 console 和 Bridge 调用不要全量打到线上。</li>
+      <li>权限按需申请，不要在容器初始化时一次性索取。</li>
+      <li>SPA 页面要关注 history 变化，不能只依赖传统页面加载事件。</li>
+    </ul>
+  </main>
+
+  <footer>
+    当前示例基于 flutter_inappwebview 6.x，建议 Android / iOS 都用真机完成能力验收。
+  </footer>
+</body>
+</html>

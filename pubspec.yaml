@@ -1,0 +1,33 @@
+name: fl_webbridge_tool
+description: A reusable Flutter WebBridge plugin with BR_Web container, native bridge, lifecycle logs, and default device capabilities.
+version: 0.1.0
+publish_to: none
+
+environment:
+  sdk: ^3.11.5
+  flutter: ">=3.24.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  file_picker: ^11.0.2
+  flutter_inappwebview: ^6.1.5
+  image_picker: ^1.2.2
+  path_provider: ^2.1.5
+  permission_handler: ^12.0.1
+  plugin_platform_interface: ^2.1.8
+  record: ^6.2.0
+
+dev_dependencies:
+  flutter_lints: ^6.0.0
+  flutter_test:
+    sdk: flutter
+
+flutter:
+  plugin:
+    platforms:
+      android:
+        package: com.persagy.fl_webbridge_tool
+        pluginClass: FlWebbridgeToolPlugin
+      ios:
+        pluginClass: FlWebbridgeToolPlugin

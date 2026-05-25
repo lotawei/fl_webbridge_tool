@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>BR_Web Demo</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: #172033;
+      background: #f7f8fb;
+    }
+    header {
+      padding: 20px 18px 12px;
+      background: #ffffff;
+      border-bottom: 1px solid #e7e9ef;
+    }
+    h1 { margin: 0 0 6px; font-size: 22px; }
+    p { margin: 0; color: #667085; line-height: 1.5; }
+    main { padding: 16px; }
+    button {
+      width: 100%;
+      height: 46px;
+      margin: 7px 0;
+      border: 0;
+      border-radius: 8px;
+      color: white;
+      background: #2563eb;
+      font-size: 16px;
+      font-weight: 600;
+    }
+    button.secondary { background: #475467; }
+    pre {
+      min-height: 160px;
+      margin-top: 14px;
+      padding: 12px;
+      overflow: auto;
+      border: 1px solid #e7e9ef;
+      border-radius: 8px;
+      background: #ffffff;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>BR_Web 容器测试页</h1>
+    <p>验证网页到 Flutter、Flutter 到网页、生命周期和原生能力调用。</p>
+  </header>
+  <main>
+    <button onclick="takePhoto()">拍照</button>
+    <button onclick="pickFile()">选择文件</button>
+    <button onclick="startRecord()">开始录音</button>
+    <button onclick="stopRecord()">停止录音</button>
+    <button class="secondary" onclick="closePage()">退出当前网页</button>
+    <pre id="log"></pre>
+  </main>
+  <script>
+    const logEl = document.getElementById('log');
+
+    function log(value) {
+      const text = typeof value === 'string' ? value : JSON.stringify(value, null, 2);
+      logEl.textContent = `${new Date().toLocaleTimeString()} ${text}\n\n${logEl.textContent}`;
+    }
+
+    window.BR_WebContainer = {
+      call(action, params = {}) {
+        const message = {
+          id: `${Date.now()}_${Math.random().toString(16).slice(2)}`,
+          action,
+          params
+        };
+        return window.flutter_inappwebview.callHandler('BR_WebNativeBridge', message);
+      },
+      __nativeCall(payload) {
+        log({ fromNative: payload });
+        return { received: true };
+      }
+    };
+
+    async function takePhoto() {
+      log(await BR_WebContainer.call('device.camera.takePhoto', { quality: 80, maxWidth: 1600 }));
+    }
+
+    async function pickFile() {
+      log(await BR_WebContainer.call('device.file.pick', { multiple: true }));
+    }
+
+    async function startRecord() {
+      log(await BR_WebContainer.call('device.audio.startRecord'));
+    }
+
+    async function stopRecord() {
+      log(await BR_WebContainer.call('device.audio.stopRecord'));
+    }
+
+    async function closePage() {
+      log(await BR_WebContainer.call('container.close', { reason: 'h5_request' }));
+    }
+
+    window.addEventListener('flutterInAppWebViewPlatformReady', () => {
+      log('bridge ready in BR_Web');
+    });
+  </script>
+</body>
+</html>
