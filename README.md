@@ -20,15 +20,27 @@ fl_webbridge_tool/
   pubspec.yaml             # 插件 pubspec，包含 flutter.plugin.platforms
 ```
 
-## 当前最小能力
+## 当前能力
 
-- BR_Web -> Flutter：`window.flutter_inappwebview.callHandler('BR_WebNativeBridge', message)`
-- Flutter -> BR_Web：`BRWebBridge.callWeb(method, params)`
-- BR_Web 调用原生拍照：`device.camera.takePhoto`
-- BR_Web 调用文件选择：`device.file.pick`
-- BR_Web 调用录音开始/停止：`device.audio.startRecord` / `device.audio.stopRecord`
-- BR_Web 关闭当前容器：`container.close`
-- Flutter 感知 BR_Web 生命周期：创建、加载开始、加载完成、进度、SPA history、标题变化、console、错误、销毁
+### 通信桥
+- BR_Web → Flutter：`window.flutter_inappwebview.callHandler('BR_WebNativeBridge', message)`
+- Flutter → BR_Web：`BRWebBridge.callWeb(method, params)`
+
+### 原生能力（DefaultBRWebCapabilityHandler）
+
+| Action | 说明 | 权限需求 |
+|--------|------|---------|
+| `device.camera.takePhoto` | 拍照 | `CAMERA` |
+| `device.camera.takeVideo` | 录像 | `CAMERA` + `MICROPHONE` |
+| `device.camera.pickVideo` | 从相册选视频 | `PHOTOS` |
+| `device.file.pick` | 文件选择 | 无 |
+| `device.file.preview` | 预览文件（图片/视频/音频） | 无（读取本地文件） |
+| `device.audio.startRecord` | 开始录音 | `MICROPHONE` |
+| `device.audio.stopRecord` | 停止录音 | - |
+| `container.close` | 关闭容器 | - |
+
+### 生命周期监听
+- 创建、加载开始、加载完成、进度、SPA history、标题变化、console、错误、销毁
 - API 日志：请求、响应、生命周期统一接入 `BRWebLogger`
 
 ## 快速接入

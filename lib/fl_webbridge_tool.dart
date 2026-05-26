@@ -6,3 +6,5 @@ export 'src/br_web_capability_handler.dart';
 export 'src/br_web_container_page.dart';
 export 'src/br_web_lifecycle.dart';
 export 'src/br_web_logger.dart';
+export 'src/br_web_permission_helper.dart';
+export 'src/br_web_preview_page.dart';

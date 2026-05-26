@@ -52,9 +52,12 @@
   </header>
   <main>
     <button onclick="takePhoto()">拍照</button>
+    <button onclick="takeVideo()">录像</button>
     <button onclick="pickFile()">选择文件</button>
+    <button onclick="pickVideo()">从相册选视频</button>
     <button onclick="startRecord()">开始录音</button>
     <button onclick="stopRecord()">停止录音</button>
+    <button onclick="previewFile()">预览文件</button>
     <button class="secondary" onclick="closePage()">退出当前网页</button>
     <pre id="log"></pre>
   </main>
@@ -99,6 +102,21 @@
 
     async function closePage() {
       log(await BR_WebContainer.call('container.close', { reason: 'h5_request' }));
+    }
+
+    async function takeVideo() {
+      log(await BR_WebContainer.call('device.camera.takeVideo', { maxDuration: 15, camera: 'rear' }));
+    }
+
+    async function pickVideo() {
+      log(await BR_WebContainer.call('device.camera.pickVideo', { maxDuration: 600 }));
+    }
+
+    async function previewFile() {
+      const type = prompt('预览类型: image / video / audio', 'image');
+      const path = prompt('文件路径', type === 'image' ? '/path/to/photo.jpg' : '/path/to/file.mp4');
+      if (!path) return;
+      log(await BR_WebContainer.call('device.file.preview', { path, type, title: '预览' }));
     }
 
     window.addEventListener('flutterInAppWebViewPlatformReady', () => {
