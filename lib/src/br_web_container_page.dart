@@ -1,61 +1,130 @@
+import 'dart:collection';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
 import 'br_web_bridge.dart';
 import 'br_web_capability_handler.dart';
+import 'br_web_initial_data.dart';
 import 'br_web_lifecycle.dart';
 import 'br_web_logger.dart';
+import 'br_web_route_observer.dart';
 
 typedef BRWebLifecycleCallback = void Function(BRWebLifecycleEvent event);
 typedef BRWebCreatedCallback =
     void Function(BRWebBridge bridge, InAppWebViewController controller);
 
+/// H5 请求原生控制 UI 时的回调
+///
+/// [action] — 如 `hideTabBar` / `showTabBar`
+/// [params] — 附加参数
+typedef BRWebUiRequestCallback = void Function(
+  String action,
+  Map<String, dynamic>? params,
+);
+
+/// H5 请求修改页面标题时的回调
+typedef BRWebTitleRequestCallback = void Function(String title);
+
 class BRWebContainerPage extends StatefulWidget {
   const BRWebContainerPage({
     super.key,
+    this.url,
     this.initialUrl,
     this.initialFile,
     this.title,
+    this.initialData,
     this.capabilityHandler,
     this.logger = const DebugBRWebLogger(),
     this.onLifecycle,
     this.onCreated,
+    this.onUiRequest,
+    this.onTitleRequest,
     this.showAppBar = true,
     this.pullToRefreshEnabled = false,
   }) : assert(
-         initialUrl != null || initialFile != null,
-         'initialUrl or initialFile is required.',
+         url != null || initialUrl != null || initialFile != null,
+         'url, initialUrl or initialFile is required.',
        );
 
+  /// H5 页面 URL（推荐使用，与 [initialUrl] 等效）
+  final String? url;
+
+  /// 初始 URL（向后兼容）
   final String? initialUrl;
+
+  /// 本地 asset 路径
   final String? initialFile;
+
+  /// 页面标题（H5 可通过 bridge `navigation.setTitle` 覆盖）
   final String? title;
+
+  /// 注入到 H5 的通用数据（token、用户信息、语言等）
+  ///
+  /// 插件在页面加载前将其注入为 `window.__BR_Data__`，
+  /// H5 无需调用 bridge 即可同步读取。
+  final BRWebInitialData? initialData;
+
+  /// 自定义能力注册器（替换默认）
   final BRWebCapabilityHandler? capabilityHandler;
+
+  /// 日志器
   final BRWebLogger? logger;
+
+  /// 生命周期事件回调
   final BRWebLifecycleCallback? onLifecycle;
+
+  /// WebView 创建完成回调
   final BRWebCreatedCallback? onCreated;
+
+  /// H5 请求 UI 控制回调（hideTabBar / showTabBar 等）
+  final BRWebUiRequestCallback? onUiRequest;
+
+  /// H5 通过 bridge 修改标题时的回调
+  final BRWebTitleRequestCallback? onTitleRequest;
+
+  /// 是否显示 AppBar
   final bool showAppBar;
+
+  /// 是否启用下拉刷新
   final bool pullToRefreshEnabled;
 
   @override
   State<BRWebContainerPage> createState() => _BRWebContainerPageState();
 }
 
-class _BRWebContainerPageState extends State<BRWebContainerPage> {
+class _BRWebContainerPageState extends State<BRWebContainerPage>
+    with WidgetsBindingObserver, RouteAware {
+  late final DefaultBRWebCapabilityHandler _handler;
   late final BRWebBridge _bridge;
   late final PullToRefreshController _pullToRefreshController;
   InAppWebViewController? _controller;
   String? _title;
   int _progress = 0;
+  bool _pageVisible = true;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _title = widget.title;
+    _handler = DefaultBRWebCapabilityHandler();
+
+    // 回调连接：H5 → Native 标题控制
+    _handler.onSetTitle = (title) {
+      setState(() => _title = title);
+      widget.onTitleRequest?.call(title);
+    };
+
+    // 回调连接：H5 → Native UI 控制
+    _handler.onUiRequest = (action, params) {
+      widget.onUiRequest?.call(action, params);
+    };
+
     _bridge = BRWebBridge(
       context: context,
       capabilityHandler:
-          widget.capabilityHandler ?? DefaultBRWebCapabilityHandler(),
+          widget.capabilityHandler ?? _handler,
       logger: widget.logger,
     );
     _pullToRefreshController = PullToRefreshController(
@@ -63,29 +132,91 @@ class _BRWebContainerPageState extends State<BRWebContainerPage> {
       onRefresh: () async => _controller?.reload(),
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
+      // 订阅 RouteAware 用于检测页面显隐
+      BRWebRouteObserver.of(context).subscribe(this, ModalRoute.of(context)!);
       _log(
         BRWebLifecycleType.created,
-        url: widget.initialUrl ?? widget.initialFile,
+        url: _effectiveUrl,
       );
     });
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // RouteAware 订阅在首次 post-frame 时执行
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    final type = switch (state) {
+      AppLifecycleState.resumed => 'foreground',
+      AppLifecycleState.paused => 'background',
+      AppLifecycleState.inactive => 'inactive',
+      AppLifecycleState.hidden => 'hidden',
+      AppLifecycleState.detached => 'detached',
+    };
+    _bridge.callWeb('app.lifecycle', <String, dynamic>{
+      'state': type,
+      'timestamp': DateTime.now().millisecondsSinceEpoch,
+    });
+    widget.logger?.native('App $type');
+  }
+
+  // ─── RouteAware：页面自身显隐 ───
+  @override
+  void didPush() {
+    _notifyPageVisible(true);
+  }
+
+  @override
+  void didPopNext() {
+    _notifyPageVisible(true);
+  }
+
+  @override
+  void didPushNext() {
+    _notifyPageVisible(false);
+  }
+
+  @override
+  void didPop() {
+    _notifyPageVisible(false);
+  }
+
+  void _notifyPageVisible(bool visible) {
+    if (_pageVisible == visible) return;
+    _pageVisible = visible;
+    _bridge.callWeb('page.visibility', <String, dynamic>{
+      'visible': visible,
+      'timestamp': DateTime.now().millisecondsSinceEpoch,
+    });
+    widget.logger?.native('Page ${visible ? "visible" : "hidden"}');
+  }
+
+  /// 有效的 URL
+  String? get _effectiveUrl => widget.url ?? widget.initialUrl;
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _log(BRWebLifecycleType.disposed);
+    _bridge.callWeb('app.lifecycle', <String, dynamic>{
+      'state': 'disposed',
+      'timestamp': DateTime.now().millisecondsSinceEpoch,
+    });
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final webView = InAppWebView(
-      initialUrlRequest: widget.initialUrl == null
+      initialUrlRequest: _effectiveUrl == null
           ? null
-          : URLRequest(url: WebUri(widget.initialUrl!)),
+          : URLRequest(url: WebUri(_effectiveUrl!)),
       initialFile: widget.initialFile,
+      initialUserScripts: _buildUserScripts(),
       initialSettings: InAppWebViewSettings(
         javaScriptEnabled: true,
         javaScriptCanOpenWindowsAutomatically: false,
@@ -102,9 +233,11 @@ class _BRWebContainerPageState extends State<BRWebContainerPage> {
       onWebViewCreated: (controller) {
         _controller = controller;
         _bridge.bind(controller);
+        _injectInitialData(controller);
         widget.onCreated?.call(_bridge, controller);
       },
       onLoadStart: (controller, url) {
+        _injectInitialData(controller);
         _log(BRWebLifecycleType.loadStart, url: url?.toString());
         _bridge.emitLifecycle('loadStart', <String, dynamic>{
           'url': url?.toString(),
@@ -119,6 +252,11 @@ class _BRWebContainerPageState extends State<BRWebContainerPage> {
       },
       onReceivedError: (controller, request, error) {
         _pullToRefreshController.endRefreshing();
+        widget.logger?.jsError(
+          '${error.type}: ${error.description}',
+          request.url.toString(),
+          null,
+        );
         _log(
           BRWebLifecycleType.error,
           url: request.url.toString(),
@@ -130,7 +268,10 @@ class _BRWebContainerPageState extends State<BRWebContainerPage> {
         _log(BRWebLifecycleType.progress, progress: progress);
       },
       onTitleChanged: (controller, title) {
-        setState(() => _title = widget.title ?? title);
+        // 只有 H5 没有通过 bridge 覆盖时，才用 WebView 的 title
+        if (_title == widget.title) {
+          setState(() => _title = title);
+        }
         _log(BRWebLifecycleType.titleChanged, title: title);
       },
       onUpdateVisitedHistory: (controller, url, isReload) {
@@ -141,6 +282,7 @@ class _BRWebContainerPageState extends State<BRWebContainerPage> {
         );
       },
       onConsoleMessage: (controller, consoleMessage) {
+        widget.logger?.console('${consoleMessage.messageLevel}: ${consoleMessage.message}');
         _log(
           BRWebLifecycleType.console,
           message: '${consoleMessage.messageLevel}: ${consoleMessage.message}',
@@ -189,6 +331,25 @@ class _BRWebContainerPageState extends State<BRWebContainerPage> {
         ],
       ),
     );
+  }
+
+  /// 构建初始注入脚本（DOM 创建前执行，保证比 Vue 脚本先跑）
+  UnmodifiableListView<UserScript> _buildUserScripts() {
+    final data = widget.initialData;
+    final js = data != null ? data.toJsScript() : 'window.__BR_Data__ = {};';
+    return UnmodifiableListView<UserScript>([
+      UserScript(
+        source: js,
+        injectionTime: UserScriptInjectionTime.AT_DOCUMENT_START,
+      ),
+    ]);
+  }
+
+  /// 页面加载后补充注入（处理 SPA 跳转等场景）
+  void _injectInitialData(InAppWebViewController controller) {
+    final data = widget.initialData;
+    if (data == null) return;
+    controller.evaluateJavascript(source: data.toJsScript());
   }
 
   void _log(

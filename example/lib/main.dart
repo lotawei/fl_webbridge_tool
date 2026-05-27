@@ -1,105 +1,122 @@
+import 'dart:async';
 import 'package:fl_webbridge_tool/fl_webbridge_tool.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/scheduler.dart';
+import 'package:mcp_toolkit/mcp_toolkit.dart';
 
 void main() {
-  WidgetsFlutterBinding.ensureInitialized();
+  runZonedGuarded(
+    () {
+      WidgetsFlutterBinding.ensureInitialized();
+      MCPToolkitBinding.instance
+        ..initialize()
+        ..initializeFlutterToolkit();
+
+  BRWebNavigator.register('/h1', const BRWebRouteConfig(
+    url: 'assets/h5/demo.html', title: 'H1 首页',
+  ));
+  BRWebNavigator.register('/h2', const BRWebRouteConfig(
+    url: 'assets/h5/demo.html', title: 'H2 详情',
+  ));
+  BRWebNavigator.register('/vue', BRWebRouteConfig(
+    url: 'http://172.16.2.158:5173',
+    title: 'Vue3 演示',
+    initialData: BRWebInitialData(
+      accessToken: 'demo_token_vue',
+      userData: {'id': '1001', 'name': 'lotawei'},
+      lang: 'zh',
+    ),
+  ));
+
   runApp(const DemoApp());
+    },
+    (error, stack) =>
+        MCPToolkitBinding.instance.handleZoneError(error, stack),
+  );
 }
 
 class DemoApp extends StatefulWidget {
   const DemoApp({super.key});
-
   @override
   State<DemoApp> createState() => _DemoAppState();
 }
 
 class _DemoAppState extends State<DemoApp> {
-  final List<String> _logs = <String>[];
   final List<Widget?> _pages = List<Widget?>.filled(3, null);
   int _index = 0;
+  bool _tabBarVisible = true;
 
-  void _appendLog(String message) {
-    final now = DateTime.now();
-    final time =
-        '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}';
-    void updateLogs() {
-      if (!mounted) {
-        return;
-      }
-      _logs.insert(0, '$time  $message');
-      if (_logs.length > 80) {
-        _logs.removeLast();
-      }
-    }
-
-    if (SchedulerBinding.instance.schedulerPhase ==
-        SchedulerPhase.persistentCallbacks) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        setState(updateLogs);
-      });
-      return;
-    }
-
-    setState(updateLogs);
+  @override
+  void initState() {
+    super.initState();
+    BRWebGlobalLog.instance.native('App started, logger ready');
   }
 
   @override
   Widget build(BuildContext context) {
-    _pages[_index] ??= _buildPage(_index);
+    _pages[0] ??= NativeHomePage(onOpenWeb: () => _updateIndex(1));
+    _pages[1] ??= _buildBRWebTab();
+    _pages[2] ??= const BRWebGlobalLogPage(maxEntries: 300);
+
+    final routeObserver = BRWebRouteObserver();
 
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'BR_Web Container Demo',
+      title: 'BR_Web Demo',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF2563EB)),
         useMaterial3: true,
       ),
+      navigatorObservers: [routeObserver],
+      builder: (context, child) => routeObserver.scope(child!),
       home: Scaffold(
         body: IndexedStack(
           index: _index,
           children: List.generate(
-            _pages.length,
-            (index) => _pages[index] ?? const SizedBox.shrink(),
-          ),
+              _pages.length, (i) => _pages[i] ?? const SizedBox.shrink()),
         ),
-        bottomNavigationBar: NavigationBar(
-          selectedIndex: _index,
-          onDestinationSelected: (value) => setState(() => _index = value),
-          destinations: const [
-            NavigationDestination(icon: Icon(Icons.home_outlined), label: '原生'),
-            NavigationDestination(icon: Icon(Icons.web_asset), label: 'BR_Web'),
-            NavigationDestination(icon: Icon(Icons.receipt_long), label: '日志'),
-          ],
-        ),
+        bottomNavigationBar: _tabBarVisible
+            ? BRWebLoggableBottomBar(
+                selectedIndex: _index,
+                onTabChanged: (from, to, _) => setState(() => _index = to),
+                tabs: const [
+                  ('native', '原生', Icons.home_outlined),
+                  ('web', 'BR_Web', Icons.web_asset),
+                  ('logs', '日志', Icons.receipt_long),
+                ],
+              )
+            : null,
       ),
     );
   }
 
-  Widget _buildPage(int index) {
-    return switch (index) {
-      0 => NativeHomePage(onOpenWeb: () => setState(() => _index = 1)),
-      1 => BRWebContainerPage(
-        title: 'BR_Web 容器',
-        initialFile: 'assets/h5/demo.html',
-        onLifecycle: (event) {
-          final suffix =
-              event.message ?? event.url ?? event.progress?.toString() ?? '';
-          _appendLog('${event.type.name} $suffix');
-        },
-        onCreated: (bridge, controller) {
-          _appendLog('bridge ready');
-        },
+  void _updateIndex(int newIndex) {
+    setState(() => _index = newIndex);
+  }
+
+  Widget _buildBRWebTab() {
+    return BRWebContainerPage(
+      url: 'http://172.16.2.158:5173',
+      title: 'Vue3 Demo',
+      logger: BRWebGlobalLog.adapter,
+      initialData: BRWebInitialData(
+        accessToken: 'demo_token_vue',
+        userData: {'id': '1001', 'name': 'lotawei'},
+        lang: 'zh',
+        extra: {'appVersion': '1.0.0', 'systemVersion': 'iOS 18.0'},
       ),
-      2 => LogPage(logs: _logs),
-      _ => const SizedBox.shrink(),
-    };
+      onUiRequest: (action, params) {
+        if (action == 'hideTabBar') {
+          setState(() => _tabBarVisible = false);
+        } else if (action == 'showTabBar') {
+          setState(() => _tabBarVisible = true);
+        }
+      },
+    );
   }
 }
 
 class NativeHomePage extends StatelessWidget {
   const NativeHomePage({super.key, required this.onOpenWeb});
-
   final VoidCallback onOpenWeb;
 
   @override
@@ -109,40 +126,29 @@ class NativeHomePage extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
-          Text(
-            '通用 BR_Web 容器方案',
-            style: Theme.of(context).textTheme.headlineSmall,
-          ),
+          Text('通用 BR_Web 容器方案',
+              style: Theme.of(context).textTheme.headlineSmall),
           const SizedBox(height: 12),
-          const Text(
-            '底部 TabBar 由 Flutter 承载，网页页面作为业务容器嵌入。能力通过 package 暴露，可被其它 Flutter 工程按需接入和扩展。',
-          ),
+          const Text('底部 TabBar 由 Flutter 承载，网页页面作为业务容器嵌入。'),
           const SizedBox(height: 24),
           FilledButton.icon(
-            onPressed: onOpenWeb,
+            onPressed: () {
+              BRWebGlobalLog.instance.native('用户点击', detail: '打开 BR_Web 容器');
+              onOpenWeb();
+            },
             icon: const Icon(Icons.open_in_browser),
-            label: const Text('打开 BR_Web 容器'),
+            label: const Text('打开 BR_Web 容器 (Vue3)'),
+          ),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: () {
+              BRWebGlobalLog.instance.native('用户点击', detail: '通过 Navigator 打开 H2');
+              BRWebNavigator.push(context, '/h2');
+            },
+            icon: const Icon(Icons.open_in_new),
+            label: const Text('通过 Navigator 打开 H2'),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class LogPage extends StatelessWidget {
-  const LogPage({super.key, required this.logs});
-
-  final List<String> logs;
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('生命周期 / API 日志')),
-      body: ListView.separated(
-        padding: const EdgeInsets.all(16),
-        itemCount: logs.length,
-        separatorBuilder: (_, _) => const Divider(height: 16),
-        itemBuilder: (context, index) => Text(logs[index]),
       ),
     );
   }

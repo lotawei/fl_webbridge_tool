@@ -34,6 +34,11 @@
 	<string>用于 H5 页面选择或上传本地文件。</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>用于保存 H5 页面产生的图片或文件。</string>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

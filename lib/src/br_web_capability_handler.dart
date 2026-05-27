@@ -2,12 +2,14 @@ import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:image_gallery_saver/image_gallery_saver.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:record/record.dart';
 
 import 'br_web_bridge_message.dart';
+import 'br_web_navigator.dart';
 import 'br_web_permission_helper.dart';
 import 'br_web_preview_page.dart'
     show BRWebFileType, BRWebPreviewPage, inferFileType;
@@ -51,22 +53,37 @@ class DefaultBRWebCapabilityHandler implements BRWebCapabilityHandler {
   final AudioRecorder _recorder;
   String? _recordingPath;
 
+  /// H5 通过 bridge 修改页面标题时触发
+  void Function(String title)? onSetTitle;
+
+  /// H5 通过 bridge 请求控制原生 UI 时触发
+  void Function(String action, Map<String, dynamic>? params)? onUiRequest;
+
   @override
   Future<Object?> handle(BuildContext context, BRWebBridgeMessage message) {
     return switch (message.action) {
       'device.camera.takePhoto' => _takePhoto(context, message),
+      'device.camera.pickPhoto' => _pickPhoto(context, message),
       'device.camera.takeVideo' => _takeVideo(context, message),
       'device.camera.pickVideo' => _pickVideo(context, message),
       'device.file.pick' => _pickFile(message),
       'device.file.preview' => _previewFile(context, message),
+      'device.file.delete' => _deleteFile(message),
       'device.audio.startRecord' => _startRecord(context, message),
       'device.audio.stopRecord' => _stopRecord(),
+      'navigation.navigateTo' => _navigateTo(context, message),
+      'navigation.goBack' => _navigateBack(context, message),
+      'navigation.setTitle' => _setTitleFromH5(message),
+      'ui.hideTabBar' => _uiRequest('hideTabBar', message),
+      'ui.showTabBar' => _uiRequest('showTabBar', message),
       'container.close' => _close(context, message),
       _ => Future<Object?>.value(BRWebCapabilityHandlerResult.notHandled),
     };
   }
 
-  /// 拍照
+  // ============================================================
+  //  拍照（支持 maxSizeKB 文件大小上限，默认 1MB）
+  // ============================================================
   Future<Object?> _takePhoto(
     BuildContext context,
     BRWebBridgeMessage message,
@@ -81,24 +98,113 @@ class DefaultBRWebCapabilityHandler implements BRWebCapabilityHandler {
       return <String, dynamic>{'cancelled': true, 'reason': 'permission_denied'};
     }
 
-    final image = await _imagePicker.pickImage(
+    final maxWidth = (message.params['maxWidth'] as num?)?.toDouble();
+    final maxHeight = (message.params['maxHeight'] as num?)?.toDouble();
+    final maxSizeKB = (message.params['maxSizeKB'] as num?)?.toInt() ?? 1024; // 默认 1MB
+
+    final image = await _pickWithMaxSize(
       source: ImageSource.camera,
-      imageQuality: (message.params['quality'] as num?)?.toInt() ?? 85,
-      maxWidth: (message.params['maxWidth'] as num?)?.toDouble(),
-      maxHeight: (message.params['maxHeight'] as num?)?.toDouble(),
+      maxSizeKB: maxSizeKB,
+      maxWidth: maxWidth,
+      maxHeight: maxHeight,
     );
     if (image == null) {
       return <String, dynamic>{'cancelled': true};
     }
+
+    final file = File(image.path);
+    final bytes = await file.length();
+
+    final saveToGallery = message.params['saveToGallery'] as bool? ?? true;
+    String? galleryPath;
+
+    if (saveToGallery) {
+      galleryPath = await _saveToSystemGallery(image.path);
+    }
+
     return <String, dynamic>{
       'cancelled': false,
       'path': image.path,
       'name': image.name,
       'mimeType': image.mimeType,
+      'size': bytes,
+      'sizeKB': bytes ~/ 1024,
+      'savedToGallery': saveToGallery,
+      'galleryPath': galleryPath,
     };
   }
 
-  /// 录像（调用系统相机录制视频）
+  // ============================================================
+  //  从相册选照片（支持 maxSizeKB，默认 1MB）
+  // ============================================================
+  Future<Object?> _pickPhoto(
+    BuildContext context,
+    BRWebBridgeMessage message,
+  ) async {
+    final granted = await BRWebPermissionHelper.ensurePermission(
+      permission: Permission.photos,
+      context: context,
+      permissionName: '相册',
+      purpose: '选择照片',
+    );
+    if (!granted) {
+      return <String, dynamic>{'cancelled': true, 'reason': 'permission_denied'};
+    }
+
+    final maxWidth = (message.params['maxWidth'] as num?)?.toDouble();
+    final maxHeight = (message.params['maxHeight'] as num?)?.toDouble();
+    final maxSizeKB = (message.params['maxSizeKB'] as num?)?.toInt() ?? 1024;
+
+    final image = await _pickWithMaxSize(
+      source: ImageSource.gallery,
+      maxSizeKB: maxSizeKB,
+      maxWidth: maxWidth,
+      maxHeight: maxHeight,
+    );
+    if (image == null) {
+      return <String, dynamic>{'cancelled': true};
+    }
+
+    final file = File(image.path);
+    final bytes = await file.length();
+
+    return <String, dynamic>{
+      'cancelled': false,
+      'path': image.path,
+      'name': image.name,
+      'mimeType': image.mimeType,
+      'size': bytes,
+      'sizeKB': bytes ~/ 1024,
+    };
+  }
+
+  /// 渐进压降策略：从高质量开始，逐级降低直到满足 maxSizeKB
+  Future<XFile?> _pickWithMaxSize({
+    required ImageSource source,
+    required int maxSizeKB,
+    double? maxWidth,
+    double? maxHeight,
+  }) async {
+    for (final quality in <int>[85, 60, 40, 20, 10]) {
+      final image = await _imagePicker.pickImage(
+        source: source,
+        imageQuality: quality,
+        maxWidth: maxWidth,
+        maxHeight: maxHeight,
+      );
+      if (image == null) return null;
+
+      final sizeKB = await File(image.path).length() ~/ 1024;
+      if (sizeKB <= maxSizeKB || quality == 10) {
+        return image; // 已满足大小上限 或 已到极限质量
+      }
+    }
+    return null;
+  }
+
+  // ============================================================
+  //  录像
+  // ============================================================
   Future<Object?> _takeVideo(
     BuildContext context,
     BRWebBridgeMessage message,
@@ -139,15 +245,27 @@ class DefaultBRWebCapabilityHandler implements BRWebCapabilityHandler {
     if (video == null) {
       return <String, dynamic>{'cancelled': true};
     }
+
+    final saveToGallery = message.params['saveToGallery'] as bool? ?? true;
+    String? galleryPath;
+
+    if (saveToGallery) {
+      galleryPath = await _saveToSystemGallery(video.path);
+    }
+
     return <String, dynamic>{
       'cancelled': false,
       'path': video.path,
       'name': video.name,
       'mimeType': video.mimeType,
+      'savedToGallery': saveToGallery,
+      'galleryPath': galleryPath,
     };
   }
 
-  /// 从相册选择视频
+  // ============================================================
+  //  从相册选视频
+  // ============================================================
   Future<Object?> _pickVideo(
     BuildContext context,
     BRWebBridgeMessage message,
@@ -179,7 +297,9 @@ class DefaultBRWebCapabilityHandler implements BRWebCapabilityHandler {
     };
   }
 
-  /// 文件选择
+  // ============================================================
+  //  文件选择
+  // ============================================================
   Future<Object?> _pickFile(BRWebBridgeMessage message) async {
     final result = await FilePicker.pickFiles(
       allowMultiple: message.params['multiple'] == true,
@@ -203,7 +323,9 @@ class DefaultBRWebCapabilityHandler implements BRWebCapabilityHandler {
     };
   }
 
-  /// 本地预览文件（图片/视频/音频）
+  // ============================================================
+  //  预览文件
+  // ============================================================
   Future<Object?> _previewFile(
     BuildContext context,
     BRWebBridgeMessage message,
@@ -253,7 +375,42 @@ class DefaultBRWebCapabilityHandler implements BRWebCapabilityHandler {
     return <String, dynamic>{'closed': true};
   }
 
-  /// 开始录音
+  // ============================================================
+  //  删除本地文件（H5 上传成功后主动清理）
+  // ============================================================
+  Future<Object?> _deleteFile(BRWebBridgeMessage message) async {
+    final path = message.params['path'] as String?;
+    if (path == null || path.isEmpty) {
+      throw ArgumentError('delete path is required');
+    }
+
+    final file = File(path);
+    if (!file.existsSync()) {
+      return <String, dynamic>{
+        'deleted': false,
+        'reason': 'not_found',
+        'path': path,
+      };
+    }
+
+    try {
+      await file.delete();
+      return <String, dynamic>{
+        'deleted': true,
+        'path': path,
+      };
+    } catch (e) {
+      return <String, dynamic>{
+        'deleted': false,
+        'reason': e.toString(),
+        'path': path,
+      };
+    }
+  }
+
+  // ============================================================
+  //  开始录音
+  // ============================================================
   Future<Object?> _startRecord(
     BuildContext context,
     BRWebBridgeMessage message,
@@ -268,7 +425,8 @@ class DefaultBRWebCapabilityHandler implements BRWebCapabilityHandler {
       return <String, dynamic>{'cancelled': true, 'reason': 'permission_denied'};
     }
 
-    final directory = await getTemporaryDirectory();
+    // 录音文件用 documents 目录保活，避免被系统 temp 清理
+    final directory = await getApplicationDocumentsDirectory();
     final fileName =
         'br_web_record_${DateTime.now().millisecondsSinceEpoch}.m4a';
     _recordingPath = '${directory.path}${Platform.pathSeparator}$fileName';
@@ -279,7 +437,9 @@ class DefaultBRWebCapabilityHandler implements BRWebCapabilityHandler {
     return <String, dynamic>{'recording': true, 'path': _recordingPath};
   }
 
-  /// 停止录音
+  // ============================================================
+  //  停止录音
+  // ============================================================
   Future<Object?> _stopRecord() async {
     final path = await _recorder.stop();
     return <String, dynamic>{
@@ -288,12 +448,90 @@ class DefaultBRWebCapabilityHandler implements BRWebCapabilityHandler {
     };
   }
 
-  /// 关闭容器
+  // ============================================================
+  //  导航：H5 跳转
+  // ============================================================
+  Future<Object?> _navigateTo(
+    BuildContext context,
+    BRWebBridgeMessage message,
+  ) async {
+    final route = message.params['route'] as String?;
+    if (route == null || route.isEmpty) {
+      throw ArgumentError('navigateTo: route is required');
+    }
+
+    final params = message.params['params'] as Map<String, dynamic>?;
+
+    if (!context.mounted) {
+      return <String, dynamic>{'success': false, 'reason': 'context_unmounted'};
+    }
+
+    try {
+      await BRWebNavigator.push(context, route, params: params);
+      return <String, dynamic>{'success': true, 'route': route};
+    } catch (e) {
+      return <String, dynamic>{'success': false, 'reason': e.toString(), 'route': route};
+    }
+  }
+
+  /// 导航：H5 返回上一页
+  Future<Object?> _navigateBack(
+    BuildContext context,
+    BRWebBridgeMessage message,
+  ) async {
+    if (!context.mounted) {
+      return <String, dynamic>{'success': false};
+    }
+    BRWebNavigator.pop(context);
+    return <String, dynamic>{'success': true};
+  }
+
+  /// 导航：H5 设置页面标题
+  Future<Object?> _setTitleFromH5(BRWebBridgeMessage message) async {
+    final title = message.params['title'] as String? ?? '';
+    onSetTitle?.call(title);
+    return <String, dynamic>{'success': true, 'title': title};
+  }
+
+  /// H5 请求控制原生 UI（hideTabBar / showTabBar 等）
+  Future<Object?> _uiRequest(
+    String action,
+    BRWebBridgeMessage message,
+  ) async {
+    final params = message.params.isNotEmpty
+        ? Map<String, dynamic>.from(message.params)
+        : null;
+    onUiRequest?.call(action, params);
+    return <String, dynamic>{'success': true, 'action': action};
+  }
+
+  // ============================================================
+  //  关闭容器
+  // ============================================================
   Future<Object?> _close(
     BuildContext context,
     BRWebBridgeMessage message,
   ) async {
     Navigator.of(context).maybePop(message.params);
     return <String, dynamic>{'closing': true};
+  }
+
+  // ============================================================
+  //  保存文件到系统相册
+  // ============================================================
+  Future<String?> _saveToSystemGallery(String filePath) async {
+    try {
+      final result = await ImageGallerySaver.saveFile(
+        filePath,
+        isReturnPathOfIOS: true,
+      );
+      if (result is Map && result['isSuccess'] == true) {
+        return result['filePath'] as String?;
+      }
+      return null;
+    } catch (_) {
+      // 保存到系统相册失败不阻止主流程
+      return null;
+    }
   }
 }

@@ -33,6 +33,11 @@ dependencies:
 
   fl_webbridge_tool:
     path: ../
+  mcp_toolkit:
+    git:
+      url: https://github.com/Arenukvern/mcp_flutter.git
+      path: mcp_toolkit
+      ref: main
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
@@ -61,6 +66,7 @@ flutter:
   uses-material-design: true
   assets:
     - assets/h5/
+    - assets/vuedemo/
 
   # To add assets to your application, add an assets section, like this:
   # assets:

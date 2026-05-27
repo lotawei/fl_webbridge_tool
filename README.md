@@ -1,7 +1,19 @@
 # fl_webbridge_tool
 
 这是一个最小化但可扩展的 Flutter WebBridge 插件。当前仓库根目录是 `fl_webbridge_tool` 插件本体，`example/` 是宿主示例工程，其它 Flutter 工程可以用 Git / private pub / path 的方式快速接入。
+H5 调用:  flutter_inappwebview.callHandler('BR_WebNativeBridge', message)
+           ↓ JSON序列化
+           ↓ WebView 内部 IPC
+           ↓ Dart 侧 BRWebBridge.bind() → capabilityHandler.handle()
+           ↓ 返回 JSON
+           ← 回传 H5
 
+Flutter调: BRWebBridge.callWeb(method, params)
+           ↓ evaluateJavascript('window.BR_WebContainer.__nativeCall({...})')
+           ↓ WebView JS 引擎执行
+           ← 无返回值（单向通知）
+当前: H5 → callHandler → Dart bridge → capabilityHandler → 原生API
+       ↑JSON          ↑IPC        ↑Dart分发     ↑platform invoke
 ## 方案定位
 
 - Flutter 负责 App 壳、导航、TabBar、登录态、权限、原生能力、日志和生命周期治理。
@@ -28,16 +40,17 @@ fl_webbridge_tool/
 
 ### 原生能力（DefaultBRWebCapabilityHandler）
 
-| Action | 说明 | 权限需求 |
-|--------|------|---------|
-| `device.camera.takePhoto` | 拍照 | `CAMERA` |
-| `device.camera.takeVideo` | 录像 | `CAMERA` + `MICROPHONE` |
-| `device.camera.pickVideo` | 从相册选视频 | `PHOTOS` |
-| `device.file.pick` | 文件选择 | 无 |
-| `device.file.preview` | 预览文件（图片/视频/音频） | 无（读取本地文件） |
-| `device.audio.startRecord` | 开始录音 | `MICROPHONE` |
-| `device.audio.stopRecord` | 停止录音 | - |
-| `container.close` | 关闭容器 | - |
+| Action | 说明 | 权限需求 | 存储位置 |
+|--------|------|---------|---------|
+| `device.camera.takePhoto` | 拍照，默认存系统相册 | `CAMERA` | temp + 可选入相册 |
+| `device.camera.takeVideo` | 录像，默认存系统相册 | `CAMERA` + `MICROPHONE` | temp + 可选入相册 |
+| `device.camera.pickVideo` | 从相册选视频 | `PHOTOS` | 外部文件引用 |
+| `device.file.pick` | 文件选择 | 无 | 外部文件引用 |
+| `device.file.preview` | 预览文件（图片/视频/音频） | 无 | 读取本地文件 |
+| `device.file.delete` | 删除本地文件（上传成功后清理） | 无 | - |
+| `device.audio.startRecord` | 开始录音 | `MICROPHONE` | documents（保活） |
+| `device.audio.stopRecord` | 停止录音 | - | - |
+| `container.close` | 关闭容器 | - | - |
 
 ### 生命周期监听
 - 创建、加载开始、加载完成、进度、SPA history、标题变化、console、错误、销毁

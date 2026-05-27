@@ -32,6 +32,7 @@
       font-weight: 600;
     }
     button.secondary { background: #475467; }
+    button.outline { background: transparent; color: #2563eb; border: 1.5px solid #2563eb; }
     pre {
       min-height: 160px;
       margin-top: 14px;
@@ -48,17 +49,24 @@
 <body>
   <header>
     <h1>BR_Web 容器测试页</h1>
-    <p>验证网页到 Flutter、Flutter 到网页、生命周期和原生能力调用。</p>
+    <p id="greeting">加载中...</p>
   </header>
   <main>
-    <button onclick="takePhoto()">拍照</button>
-    <button onclick="takeVideo()">录像</button>
-    <button onclick="pickFile()">选择文件</button>
-    <button onclick="pickVideo()">从相册选视频</button>
-    <button onclick="startRecord()">开始录音</button>
-    <button onclick="stopRecord()">停止录音</button>
-    <button onclick="previewFile()">预览文件</button>
-    <button class="secondary" onclick="closePage()">退出当前网页</button>
+    <button onclick="takePhoto()">📷 拍照（存相册）</button>
+    <button onclick="takeVideo()">🎥 录像（存相册）</button>
+    <button onclick="takeVideoNoSave()">🎥 录像（不入相册）</button>
+    <button onclick="pickFile()">📂 选择文件</button>
+    <button onclick="pickVideo()">🎬 从相册选视频</button>
+    <button onclick="startRecord()">🎙️ 开始录音</button>
+    <button onclick="stopRecord()">⏹️ 停止录音</button>
+    <button onclick="previewFile()">👁️ 预览文件</button>
+    <button onclick="deleteFile()">🗑️ 删除文件</button>
+    <hr style="margin:14px 0;border:none;border-top:1px solid #e7e9ef;">
+    <button onclick="setMyTitle()">✏️ 设置标题</button>
+    <button onclick="navigateToH2()">➡️ 跳转到 H2</button>
+    <button onclick="toggleTabBar()">👁️ 切换 TabBar 显隐</button>
+    <button class="outline" onclick="showBridgeData()">📋 查看 __BR_Data__</button>
+    <button class="secondary" onclick="closePage()">🚪 退出</button>
     <pre id="log"></pre>
   </main>
   <script>
@@ -84,12 +92,58 @@
       }
     };
 
+    // ====== 通用数据读取（由 Native 在页面前注入） ======
+    function showBridgeData() {
+      const data = window.__BR_Data__ || {};
+      document.getElementById('greeting').textContent =
+        data.accessToken
+          ? `👤 已登录 · lang=${data.lang || 'N/A'} · user=${(data.user || {}).name || 'N/A'}`
+          : '⚠️ 未收到注入数据';
+      log({ __BR_Data__: data });
+    }
+
+    // ====== 导航 ======
+    async function setMyTitle() {
+      const t = prompt('新标题', document.title);
+      if (t) {
+        document.title = t;
+        log(await BR_WebContainer.call('navigation.setTitle', { title: t }));
+      }
+    }
+
+    async function navigateToH2() {
+      log(await BR_WebContainer.call('navigation.navigateTo', { route: '/h2' }));
+    }
+
+    let tabVisible = true;
+    async function toggleTabBar() {
+      tabVisible = !tabVisible;
+      if (tabVisible) {
+        log(await BR_WebContainer.call('ui.showTabBar'));
+      } else {
+        log(await BR_WebContainer.call('ui.hideTabBar'));
+      }
+    }
+
+    // ====== 能力调用（已有） ======
     async function takePhoto() {
       log(await BR_WebContainer.call('device.camera.takePhoto', { quality: 80, maxWidth: 1600 }));
     }
 
+    async function takeVideo() {
+      log(await BR_WebContainer.call('device.camera.takeVideo', { maxDuration: 15, camera: 'rear', saveToGallery: true }));
+    }
+
+    async function takeVideoNoSave() {
+      log(await BR_WebContainer.call('device.camera.takeVideo', { maxDuration: 15, camera: 'rear', saveToGallery: false }));
+    }
+
     async function pickFile() {
       log(await BR_WebContainer.call('device.file.pick', { multiple: true }));
+    }
+
+    async function pickVideo() {
+      log(await BR_WebContainer.call('device.camera.pickVideo', { maxDuration: 600 }));
     }
 
     async function startRecord() {
@@ -100,18 +154,6 @@
       log(await BR_WebContainer.call('device.audio.stopRecord'));
     }
 
-    async function closePage() {
-      log(await BR_WebContainer.call('container.close', { reason: 'h5_request' }));
-    }
-
-    async function takeVideo() {
-      log(await BR_WebContainer.call('device.camera.takeVideo', { maxDuration: 15, camera: 'rear' }));
-    }
-
-    async function pickVideo() {
-      log(await BR_WebContainer.call('device.camera.pickVideo', { maxDuration: 600 }));
-    }
-
     async function previewFile() {
       const type = prompt('预览类型: image / video / audio', 'image');
       const path = prompt('文件路径', type === 'image' ? '/path/to/photo.jpg' : '/path/to/file.mp4');
@@ -119,8 +161,20 @@
       log(await BR_WebContainer.call('device.file.preview', { path, type, title: '预览' }));
     }
 
+    async function deleteFile() {
+      const path = prompt('待删除文件路径', '/path/to/file');
+      if (!path) return;
+      log(await BR_WebContainer.call('device.file.delete', { path }));
+    }
+
+    async function closePage() {
+      log(await BR_WebContainer.call('container.close', { reason: 'h5_request' }));
+    }
+
+    // 启动时自动读取注入数据
     window.addEventListener('flutterInAppWebViewPlatformReady', () => {
       log('bridge ready in BR_Web');
+      showBridgeData();
     });
   </script>
 </body>
