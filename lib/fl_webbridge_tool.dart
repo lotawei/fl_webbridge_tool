@@ -12,4 +12,5 @@ export 'src/br_web_navigator.dart';
 export 'src/br_web_network_monitor.dart';
 export 'src/br_web_permission_helper.dart';
 export 'src/br_web_preview_page.dart';
+export 'src/br_web_route_observer.dart';
 export 'src/br_web_system_info.dart';

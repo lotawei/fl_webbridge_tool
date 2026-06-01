@@ -16,10 +16,7 @@ import 'br_web_logger.dart';
 /// monitor.start();
 /// ```
 class BRWebNetworkMonitor {
-  BRWebNetworkMonitor({
-    this.logger,
-    this.onChanged,
-  });
+  BRWebNetworkMonitor({this.logger, this.onChanged});
 
   final BRWebLogger? logger;
   final void Function(String status)? onChanged;
@@ -57,19 +54,24 @@ class BRWebNetworkMonitor {
   }
 
   String _toStatus(List<ConnectivityResult> results) {
-    if (results.isEmpty || results.contains(ConnectivityResult.none)) {
-      return 'offline';
+    final connectedResults = results
+        .where((result) => result != ConnectivityResult.none)
+        .toList();
+    if (connectedResults.isEmpty) return 'offline';
+    if (connectedResults.contains(ConnectivityResult.wifi)) return 'wifi';
+    if (connectedResults.contains(ConnectivityResult.ethernet)) {
+      return 'ethernet';
     }
-    if (results.contains(ConnectivityResult.wifi)) return 'wifi';
-    if (results.contains(ConnectivityResult.ethernet)) return 'ethernet';
-    if (results.contains(ConnectivityResult.mobile)) return 'mobile';
+    if (connectedResults.contains(ConnectivityResult.mobile)) return 'mobile';
     return 'online';
   }
 
   /// 立即获取当前状态
   Future<String> checkNow() async {
     final results = await _connectivity.checkConnectivity();
-    return _toStatus(results);
+    final status = _toStatus(results);
+    _handleChange(results);
+    return status;
   }
 
   /// 停止监听

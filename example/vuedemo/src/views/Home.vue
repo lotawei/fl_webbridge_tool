@@ -52,6 +52,145 @@ async function deleteFile() {
 async function getNetworkStatus() { appendLog(await call('device.network.status')) }
 async function getSystemInfo() { appendLog(await call('device.system.info')) }
 
+// ====== 网页原生 Web API 权限 ======
+function formatWebApiError(error: unknown) {
+  if (error instanceof DOMException) {
+    return { name: error.name, message: error.message }
+  }
+  if (error instanceof Error) {
+    return { name: error.name, message: error.message }
+  }
+  return { error: String(error) }
+}
+
+function stopStream(stream: MediaStream) {
+  stream.getTracks().forEach((track) => track.stop())
+}
+
+async function requestWebCamera() {
+  try {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      appendLog('当前环境不支持 navigator.mediaDevices.getUserMedia')
+      return
+    }
+    const stream = await navigator.mediaDevices.getUserMedia({ video: true })
+    appendLog({
+      webApi: 'getUserMedia(video)',
+      tracks: stream.getTracks().map((track) => ({
+        kind: track.kind,
+        label: track.label,
+        readyState: track.readyState,
+      })),
+    })
+    stopStream(stream)
+  } catch (error) {
+    appendLog({ webApi: 'getUserMedia(video)', error: formatWebApiError(error) })
+  }
+}
+
+async function requestWebMicrophone() {
+  try {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      appendLog('当前环境不支持 navigator.mediaDevices.getUserMedia')
+      return
+    }
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+    appendLog({
+      webApi: 'getUserMedia(audio)',
+      tracks: stream.getTracks().map((track) => ({
+        kind: track.kind,
+        label: track.label,
+        readyState: track.readyState,
+      })),
+    })
+    stopStream(stream)
+  } catch (error) {
+    appendLog({ webApi: 'getUserMedia(audio)', error: formatWebApiError(error) })
+  }
+}
+
+async function requestWebCameraAndMicrophone() {
+  try {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      appendLog('当前环境不支持 navigator.mediaDevices.getUserMedia')
+      return
+    }
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: true,
+      audio: true,
+    })
+    appendLog({
+      webApi: 'getUserMedia(video+audio)',
+      tracks: stream.getTracks().map((track) => ({
+        kind: track.kind,
+        label: track.label,
+        readyState: track.readyState,
+      })),
+    })
+    stopStream(stream)
+  } catch (error) {
+    appendLog({
+      webApi: 'getUserMedia(video+audio)',
+      error: formatWebApiError(error),
+    })
+  }
+}
+
+async function requestWebLocation() {
+  try {
+    if (!navigator.geolocation) {
+      appendLog('当前环境不支持 navigator.geolocation')
+      return
+    }
+    const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+      navigator.geolocation.getCurrentPosition(resolve, reject, {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0,
+      })
+    })
+    appendLog({
+      webApi: 'geolocation.getCurrentPosition',
+      coords: {
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+        accuracy: position.coords.accuracy,
+      },
+    })
+  } catch (error) {
+    appendLog({
+      webApi: 'geolocation.getCurrentPosition',
+      error: formatWebApiError(error),
+    })
+  }
+}
+
+async function requestWebScreenCapture() {
+  try {
+    const getDisplayMedia = (
+      navigator.mediaDevices as MediaDevices & {
+        getDisplayMedia?: (constraints?: MediaStreamConstraints) => Promise<MediaStream>
+      }
+    )?.getDisplayMedia
+    if (!getDisplayMedia) {
+      appendLog('当前环境不支持 navigator.mediaDevices.getDisplayMedia')
+      return
+    }
+    const stream = await getDisplayMedia({ video: true, audio: false })
+    appendLog({
+      webApi: 'getDisplayMedia(video)',
+      tracks: stream.getTracks().map((track) => ({
+        kind: track.kind,
+        label: track.label,
+        readyState: track.readyState,
+      })),
+    })
+    stopStream(stream)
+  } catch (error) {
+    appendLog({ webApi: 'getDisplayMedia(video)', error: formatWebApiError(error) })
+  }
+}
+
 // ====== 导航 & UI ======
 async function navigateTo() { appendLog(await call('navigation.navigateTo', { route: '/h2' })) }
 async function setTitle() {
@@ -86,6 +225,14 @@ async function closePage() { appendLog(await call('container.close', { reason: '
       <button @click="stopRecord">⏹️ 停止录音</button>
       <button @click="previewFile">👁️ 预览文件</button>
       <button @click="deleteFile">🗑️ 删除文件</button>
+
+      <hr />
+
+      <button @click="requestWebCamera">🌐 Web API 相机权限</button>
+      <button @click="requestWebMicrophone">🌐 Web API 麦克风权限</button>
+      <button @click="requestWebCameraAndMicrophone">🌐 Web API 音视频权限</button>
+      <button @click="requestWebLocation">🌐 Web API 定位权限</button>
+      <button @click="requestWebScreenCapture">🌐 Web API 屏幕捕获</button>
 
       <hr />
 

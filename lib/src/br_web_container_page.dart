@@ -2,12 +2,15 @@ import 'dart:collection';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 import 'br_web_bridge.dart';
 import 'br_web_capability_handler.dart';
+import 'br_web_dev_guard.dart';
 import 'br_web_initial_data.dart';
 import 'br_web_lifecycle.dart';
 import 'br_web_logger.dart';
+import 'br_web_permission_helper.dart';
 import 'br_web_route_observer.dart';
 
 typedef BRWebLifecycleCallback = void Function(BRWebLifecycleEvent event);
@@ -18,10 +21,8 @@ typedef BRWebCreatedCallback =
 ///
 /// [action] — 如 `hideTabBar` / `showTabBar`
 /// [params] — 附加参数
-typedef BRWebUiRequestCallback = void Function(
-  String action,
-  Map<String, dynamic>? params,
-);
+typedef BRWebUiRequestCallback =
+    void Function(String action, Map<String, dynamic>? params);
 
 /// H5 请求修改页面标题时的回调
 typedef BRWebTitleRequestCallback = void Function(String title);
@@ -96,8 +97,10 @@ class BRWebContainerPage extends StatefulWidget {
 class _BRWebContainerPageState extends State<BRWebContainerPage>
     with WidgetsBindingObserver, RouteAware {
   late final DefaultBRWebCapabilityHandler _handler;
+  late final BRWebCapabilityHandler _capabilityHandler;
   late final BRWebBridge _bridge;
   late final PullToRefreshController _pullToRefreshController;
+  BRWebRouteObserver? _routeObserver;
   InAppWebViewController? _controller;
   String? _title;
   int _progress = 0;
@@ -109,22 +112,14 @@ class _BRWebContainerPageState extends State<BRWebContainerPage>
     WidgetsBinding.instance.addObserver(this);
     _title = widget.title;
     _handler = DefaultBRWebCapabilityHandler();
+    _capabilityHandler = widget.capabilityHandler ?? _handler;
 
     // 回调连接：H5 → Native 标题控制
-    _handler.onSetTitle = (title) {
-      setState(() => _title = title);
-      widget.onTitleRequest?.call(title);
-    };
-
-    // 回调连接：H5 → Native UI 控制
-    _handler.onUiRequest = (action, params) {
-      widget.onUiRequest?.call(action, params);
-    };
+    _bindHostCallbacks(_capabilityHandler);
 
     _bridge = BRWebBridge(
       context: context,
-      capabilityHandler:
-          widget.capabilityHandler ?? _handler,
+      capabilityHandler: _capabilityHandler,
       logger: widget.logger,
     );
     _pullToRefreshController = PullToRefreshController(
@@ -134,11 +129,13 @@ class _BRWebContainerPageState extends State<BRWebContainerPage>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       // 订阅 RouteAware 用于检测页面显隐
-      BRWebRouteObserver.of(context).subscribe(this, ModalRoute.of(context)!);
-      _log(
-        BRWebLifecycleType.created,
-        url: _effectiveUrl,
-      );
+      final route = ModalRoute.of(context);
+      final observer = BRWebRouteObserver.maybeOf(context);
+      if (route != null && observer != null) {
+        _routeObserver = observer;
+        observer.subscribe(this, route);
+      }
+      _log(BRWebLifecycleType.created, url: _effectiveUrl);
     });
   }
 
@@ -201,6 +198,7 @@ class _BRWebContainerPageState extends State<BRWebContainerPage>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _routeObserver?.unsubscribe(this);
     _log(BRWebLifecycleType.disposed);
     _bridge.callWeb('app.lifecycle', <String, dynamic>{
       'state': 'disposed',
@@ -220,6 +218,7 @@ class _BRWebContainerPageState extends State<BRWebContainerPage>
       initialSettings: InAppWebViewSettings(
         javaScriptEnabled: true,
         javaScriptCanOpenWindowsAutomatically: false,
+        geolocationEnabled: true,
         mediaPlaybackRequiresUserGesture: false,
         allowsInlineMediaPlayback: true,
         transparentBackground: false,
@@ -282,16 +281,27 @@ class _BRWebContainerPageState extends State<BRWebContainerPage>
         );
       },
       onConsoleMessage: (controller, consoleMessage) {
-        widget.logger?.console('${consoleMessage.messageLevel}: ${consoleMessage.message}');
+        widget.logger?.console(
+          '${consoleMessage.messageLevel}: ${consoleMessage.message}',
+        );
         _log(
           BRWebLifecycleType.console,
           message: '${consoleMessage.messageLevel}: ${consoleMessage.message}',
         );
       },
       onPermissionRequest: (controller, request) async {
-        return PermissionResponse(
-          resources: request.resources,
-          action: PermissionResponseAction.GRANT,
+        return _handleWebPermissionRequest(request);
+      },
+      onGeolocationPermissionsShowPrompt: (controller, origin) async {
+        final allowed = await _ensureWebRuntimePermission(
+          permission: Permission.locationWhenInUse,
+          permissionName: '定位',
+          purpose: '网页定位',
+        );
+        return GeolocationPermissionShowPromptResponse(
+          origin: origin,
+          allow: allowed,
+          retain: allowed,
         );
       },
       shouldOverrideUrlLoading: (controller, navigationAction) async {
@@ -350,6 +360,97 @@ class _BRWebContainerPageState extends State<BRWebContainerPage>
     final data = widget.initialData;
     if (data == null) return;
     controller.evaluateJavascript(source: data.toJsScript());
+  }
+
+  void _bindHostCallbacks(BRWebCapabilityHandler handler) {
+    switch (handler) {
+      case DefaultBRWebCapabilityHandler():
+        handler.onSetTitle = (title) {
+          if (mounted) {
+            setState(() => _title = title);
+          }
+          widget.onTitleRequest?.call(title);
+        };
+        handler.onUiRequest = (action, params) {
+          widget.onUiRequest?.call(action, params);
+        };
+      case CompositeBRWebCapabilityHandler(:final handlers):
+        for (final child in handlers) {
+          _bindHostCallbacks(child);
+        }
+      case BRWebDevGuard(:final inner):
+        _bindHostCallbacks(inner);
+      default:
+        break;
+    }
+  }
+
+  Future<PermissionResponse> _handleWebPermissionRequest(
+    PermissionRequest request,
+  ) async {
+    var allowed = true;
+
+    if (_hasWebResource(request, PermissionResourceType.CAMERA) ||
+        _hasWebResource(
+          request,
+          PermissionResourceType.CAMERA_AND_MICROPHONE,
+        )) {
+      allowed = await _ensureWebRuntimePermission(
+        permission: Permission.camera,
+        permissionName: '相机',
+        purpose: '网页拍照或视频通话',
+      );
+    }
+
+    if (allowed &&
+        (_hasWebResource(request, PermissionResourceType.MICROPHONE) ||
+            _hasWebResource(
+              request,
+              PermissionResourceType.CAMERA_AND_MICROPHONE,
+            ))) {
+      allowed = await _ensureWebRuntimePermission(
+        permission: Permission.microphone,
+        permissionName: '麦克风',
+        purpose: '网页录音或视频通话',
+      );
+    }
+
+    widget.logger?.native(
+      'Web permission ${allowed ? "granted" : "denied"}',
+      detail: request.resources
+          .map((resource) => resource.toString())
+          .join(', '),
+    );
+
+    return PermissionResponse(
+      resources: request.resources,
+      action: allowed
+          ? PermissionResponseAction.GRANT
+          : PermissionResponseAction.DENY,
+    );
+  }
+
+  Future<bool> _ensureWebRuntimePermission({
+    required Permission permission,
+    required String permissionName,
+    required String purpose,
+  }) async {
+    if (!mounted) return false;
+    return BRWebPermissionHelper.ensurePermission(
+      permission: permission,
+      context: context,
+      permissionName: permissionName,
+      purpose: purpose,
+    );
+  }
+
+  bool _hasWebResource(
+    PermissionRequest request,
+    PermissionResourceType resource,
+  ) {
+    return request.resources.any(
+      (requested) => requested.toValue() == resource.toValue(),
+    );
   }
 
   void _log(

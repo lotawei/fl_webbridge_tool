@@ -29,11 +29,17 @@ import 'br_web_global_log.dart';
 class BRWebRouteObserver extends RouteObserver<ModalRoute<dynamic>> {
   BRWebRouteObserver();
 
+  static BRWebRouteObserver? maybeOf(BuildContext context) {
+    final scope = context
+        .getElementForInheritedWidgetOfExactType<_BRWebRouteObserverScope>()
+        ?.widget;
+    return scope is _BRWebRouteObserverScope ? scope.observer : null;
+  }
+
   static BRWebRouteObserver of(BuildContext context) {
-    final observer = context
-        .dependOnInheritedWidgetOfExactType<_BRWebRouteObserverScope>();
+    final observer = maybeOf(context);
     assert(observer != null, 'BRWebRouteObserver not found in widget tree');
-    return observer!.observer;
+    return observer!;
   }
 
   @override
@@ -67,14 +73,18 @@ class BRWebRouteObserver extends RouteObserver<ModalRoute<dynamic>> {
   }
 
   @override
-  void didStartUserGesture(Route<dynamic> route, Route<dynamic>? previousRoute) {
+  void didStartUserGesture(
+    Route<dynamic> route,
+    Route<dynamic>? previousRoute,
+  ) {
     super.didStartUserGesture(route, previousRoute);
     final name = _routeName(route);
     BRWebGlobalLog.instance.native('手势返回开始', detail: name);
   }
 
   /// 生成一个 InheritedWidget 用于 RouteAware 订阅
-  Widget scope(Widget child) => _BRWebRouteObserverScope(observer: this, child: child);
+  Widget scope(Widget child) =>
+      _BRWebRouteObserverScope(observer: this, child: child);
 
   String _routeName(Route<dynamic> route) {
     final settings = route.settings;
@@ -82,13 +92,18 @@ class BRWebRouteObserver extends RouteObserver<ModalRoute<dynamic>> {
       return settings.name!;
     }
     final type = route.runtimeType.toString();
-    final className = type.replaceAll(RegExp(r'_+'), '').replaceAll('Route', '');
+    final className = type
+        .replaceAll(RegExp(r'_+'), '')
+        .replaceAll('Route', '');
     return className.isNotEmpty ? className : type;
   }
 }
 
 class _BRWebRouteObserverScope extends InheritedWidget {
-  const _BRWebRouteObserverScope({required this.observer, required super.child});
+  const _BRWebRouteObserverScope({
+    required this.observer,
+    required super.child,
+  });
   final BRWebRouteObserver observer;
 
   @override

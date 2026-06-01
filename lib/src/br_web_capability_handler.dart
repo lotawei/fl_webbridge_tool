@@ -63,8 +63,7 @@ class DefaultBRWebCapabilityHandler implements BRWebCapabilityHandler {
   void Function(String action, Map<String, dynamic>? params)? onUiRequest;
 
   /// 设置网络监听器（由容器页传入）
-  set networkMonitor(BRWebNetworkMonitor? monitor) =>
-      _networkMonitor = monitor;
+  set networkMonitor(BRWebNetworkMonitor? monitor) => _networkMonitor = monitor;
 
   /// 设置系统信息（App 启动时收集一次）
   static set systemInfo(BRWebSystemInfo info) => _systemInfo = info;
@@ -110,12 +109,16 @@ class DefaultBRWebCapabilityHandler implements BRWebCapabilityHandler {
       purpose: '拍照',
     );
     if (!granted) {
-      return <String, dynamic>{'cancelled': true, 'reason': 'permission_denied'};
+      return <String, dynamic>{
+        'cancelled': true,
+        'reason': 'permission_denied',
+      };
     }
 
     final maxWidth = (message.params['maxWidth'] as num?)?.toDouble();
     final maxHeight = (message.params['maxHeight'] as num?)?.toDouble();
-    final maxSizeKB = (message.params['maxSizeKB'] as num?)?.toInt() ?? 1024; // 默认 1MB
+    final maxSizeKB =
+        (message.params['maxSizeKB'] as num?)?.toInt() ?? 1024; // 默认 1MB
 
     final image = await _pickWithMaxSize(
       source: ImageSource.camera,
@@ -163,7 +166,10 @@ class DefaultBRWebCapabilityHandler implements BRWebCapabilityHandler {
       purpose: '选择照片',
     );
     if (!granted) {
-      return <String, dynamic>{'cancelled': true, 'reason': 'permission_denied'};
+      return <String, dynamic>{
+        'cancelled': true,
+        'reason': 'permission_denied',
+      };
     }
 
     final maxWidth = (message.params['maxWidth'] as num?)?.toDouble();
@@ -231,11 +237,17 @@ class DefaultBRWebCapabilityHandler implements BRWebCapabilityHandler {
       purpose: '录像',
     );
     if (!cameraGranted) {
-      return <String, dynamic>{'cancelled': true, 'reason': 'camera_permission_denied'};
+      return <String, dynamic>{
+        'cancelled': true,
+        'reason': 'camera_permission_denied',
+      };
     }
 
     if (!context.mounted) {
-      return <String, dynamic>{'cancelled': true, 'reason': 'context_unmounted'};
+      return <String, dynamic>{
+        'cancelled': true,
+        'reason': 'context_unmounted',
+      };
     }
 
     final micGranted = await BRWebPermissionHelper.ensurePermission(
@@ -245,7 +257,10 @@ class DefaultBRWebCapabilityHandler implements BRWebCapabilityHandler {
       purpose: '录像录音',
     );
     if (!micGranted) {
-      return <String, dynamic>{'cancelled': true, 'reason': 'microphone_permission_denied'};
+      return <String, dynamic>{
+        'cancelled': true,
+        'reason': 'microphone_permission_denied',
+      };
     }
 
     final video = await _imagePicker.pickVideo(
@@ -292,7 +307,10 @@ class DefaultBRWebCapabilityHandler implements BRWebCapabilityHandler {
       purpose: '选择视频',
     );
     if (!granted) {
-      return <String, dynamic>{'cancelled': true, 'reason': 'permission_denied'};
+      return <String, dynamic>{
+        'cancelled': true,
+        'reason': 'permission_denied',
+      };
     }
 
     final video = await _imagePicker.pickVideo(
@@ -410,10 +428,7 @@ class DefaultBRWebCapabilityHandler implements BRWebCapabilityHandler {
 
     try {
       await file.delete();
-      return <String, dynamic>{
-        'deleted': true,
-        'path': path,
-      };
+      return <String, dynamic>{'deleted': true, 'path': path};
     } catch (e) {
       return <String, dynamic>{
         'deleted': false,
@@ -437,7 +452,10 @@ class DefaultBRWebCapabilityHandler implements BRWebCapabilityHandler {
       purpose: '录音',
     );
     if (!granted) {
-      return <String, dynamic>{'cancelled': true, 'reason': 'permission_denied'};
+      return <String, dynamic>{
+        'cancelled': true,
+        'reason': 'permission_denied',
+      };
     }
 
     // 录音文件用 documents 目录保活，避免被系统 temp 清理
@@ -485,7 +503,11 @@ class DefaultBRWebCapabilityHandler implements BRWebCapabilityHandler {
       await BRWebNavigator.push(context, route, params: params);
       return <String, dynamic>{'success': true, 'route': route};
     } catch (e) {
-      return <String, dynamic>{'success': false, 'reason': e.toString(), 'route': route};
+      return <String, dynamic>{
+        'success': false,
+        'reason': e.toString(),
+        'route': route,
+      };
     }
   }
 
@@ -509,10 +531,7 @@ class DefaultBRWebCapabilityHandler implements BRWebCapabilityHandler {
   }
 
   /// H5 请求控制原生 UI（hideTabBar / showTabBar 等）
-  Future<Object?> _uiRequest(
-    String action,
-    BRWebBridgeMessage message,
-  ) async {
+  Future<Object?> _uiRequest(String action, BRWebBridgeMessage message) async {
     final params = message.params.isNotEmpty
         ? Map<String, dynamic>.from(message.params)
         : null;
@@ -526,7 +545,7 @@ class DefaultBRWebCapabilityHandler implements BRWebCapabilityHandler {
   Future<Object?> _getNetworkStatus() async {
     final monitor = _networkMonitor;
     if (monitor == null) return <String, dynamic>{'status': 'unknown'};
-    return <String, dynamic>{'status': monitor.currentStatus};
+    return <String, dynamic>{'status': await monitor.checkNow()};
   }
 
   // ============================================================
