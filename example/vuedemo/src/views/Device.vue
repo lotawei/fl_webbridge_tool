@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { useBridge } from '../composables/useBridge'
+import { useBridge } from 'br-web-bridge-vue'
 const { logs, call, appendLog } = useBridge()
 async function takePhoto() { appendLog(await call('device.camera.takePhoto', { quality: 80 })) }
 async function takeVideo() { appendLog(await call('device.camera.takeVideo', { maxDuration: 15 })) }

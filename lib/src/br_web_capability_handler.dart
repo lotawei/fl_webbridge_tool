@@ -10,9 +10,11 @@ import 'package:record/record.dart';
 
 import 'br_web_bridge_message.dart';
 import 'br_web_navigator.dart';
+import 'br_web_network_monitor.dart';
 import 'br_web_permission_helper.dart';
 import 'br_web_preview_page.dart'
     show BRWebFileType, BRWebPreviewPage, inferFileType;
+import 'br_web_system_info.dart';
 
 abstract interface class BRWebCapabilityHandler {
   Future<Object?> handle(BuildContext context, BRWebBridgeMessage message);
@@ -52,12 +54,23 @@ class DefaultBRWebCapabilityHandler implements BRWebCapabilityHandler {
   final ImagePicker _imagePicker;
   final AudioRecorder _recorder;
   String? _recordingPath;
+  BRWebNetworkMonitor? _networkMonitor;
 
   /// H5 通过 bridge 修改页面标题时触发
   void Function(String title)? onSetTitle;
 
   /// H5 通过 bridge 请求控制原生 UI 时触发
   void Function(String action, Map<String, dynamic>? params)? onUiRequest;
+
+  /// 设置网络监听器（由容器页传入）
+  set networkMonitor(BRWebNetworkMonitor? monitor) =>
+      _networkMonitor = monitor;
+
+  /// 设置系统信息（App 启动时收集一次）
+  static set systemInfo(BRWebSystemInfo info) => _systemInfo = info;
+
+  /// 读取当前系统信息
+  static BRWebSystemInfo? get systemInfo => _systemInfo;
 
   @override
   Future<Object?> handle(BuildContext context, BRWebBridgeMessage message) {
@@ -69,6 +82,8 @@ class DefaultBRWebCapabilityHandler implements BRWebCapabilityHandler {
       'device.file.pick' => _pickFile(message),
       'device.file.preview' => _previewFile(context, message),
       'device.file.delete' => _deleteFile(message),
+      'device.network.status' => _getNetworkStatus(),
+      'device.system.info' => _getSystemInfo(),
       'device.audio.startRecord' => _startRecord(context, message),
       'device.audio.stopRecord' => _stopRecord(),
       'navigation.navigateTo' => _navigateTo(context, message),
@@ -503,6 +518,24 @@ class DefaultBRWebCapabilityHandler implements BRWebCapabilityHandler {
         : null;
     onUiRequest?.call(action, params);
     return <String, dynamic>{'success': true, 'action': action};
+  }
+
+  // ============================================================
+  //  网络状态（H5 可主动查询）
+  // ============================================================
+  Future<Object?> _getNetworkStatus() async {
+    final monitor = _networkMonitor;
+    if (monitor == null) return <String, dynamic>{'status': 'unknown'};
+    return <String, dynamic>{'status': monitor.currentStatus};
+  }
+
+  // ============================================================
+  //  系统信息（H5 可主动查询）
+  // ============================================================
+  static BRWebSystemInfo? _systemInfo;
+  Future<Object?> _getSystemInfo() async {
+    if (_systemInfo == null) return <String, dynamic>{};
+    return <String, dynamic>{..._systemInfo!.toJson()};
   }
 
   // ============================================================

@@ -5,63 +5,97 @@
 1. App Shell：Flutter 主工程，承载 TabBar、路由、登录态、主题、全局错误和 APM。
 2. fl_webbridge_tool：可复用插件 SDK，即当前仓库根目录。
 3. Capability Handlers：原生能力插件点，如相机、录音、文件、定位、支付、分享、账号。
-4. BR_Web Bridge SDK：网页侧 JS 封装，统一 promise 化调用和错误处理。
-5. Observability：生命周期、API 日志、console、错误、性能指标统一上报。
+   - `DefaultBRWebCapabilityHandler` — 内置 15+ action
+   - `CompositeBRWebCapabilityHandler` — 链式组合（自定义 → 默认）
+   - `BRWebDevGuard` — 开发期合约检查
+4. BR_Web Bridge：双向通信桥 + 通用数据注入 + 全链路日志
+5. BR_Web Bridge Vue（NPM 包）：`br-web-bridge-vue` — Vue3 composable + types
+6. Observability：生命周期、Bridge API 日志、H5 console/error、网络状态、系统信息、权限变化
 
-## 为什么使用 flutter_inappwebview
+## 完整能力矩阵
 
-`flutter_inappwebview` 比基础 WebView 包更适合容器化场景：JS handler 更直接，WebView 生命周期事件更丰富，权限请求、下载、history 变化、console、资源拦截等能力更完整。代价是升级 Flutter/Android/iOS 时要更认真做兼容测试。
+### 设备能力（DefaultBRWebCapabilityHandler）
 
-## 接入形态
+| Action | 说明 | 权限 |
+|--------|------|------|
+| `device.camera.takePhoto` | 拍照（默认存系统相册） | CAMERA |
+| `device.camera.takeVideo` | 录像（默认存系统相册） | CAMERA + MICROPHONE |
+| `device.camera.pickVideo` | 从相册选视频 | PHOTOS |
+| `device.file.pick` | 文件选择 | - |
+| `device.file.preview` | 预览文件（图片/视频/音频） | - |
+| `device.file.delete` | 删除本地文件 | - |
+| `device.audio.startRecord` | 开始录音 | MICROPHONE |
+| `device.audio.stopRecord` | 停止录音 | - |
+| `device.network.status` | 查询网络状态 | - |
+| `device.system.info` | 查询设备/系统信息 | - |
 
-推荐把容器做成 Flutter package，而不是散落在业务工程里：
+### 导航 & UI
 
-- 独立版本号，方便灰度和回滚。
-- 对外 API 稳定，业务只关心 URL、能力注册、生命周期回调。
-- 默认能力内置，业务能力通过 `BRWebCapabilityHandler` 扩展。
-- 可以沉淀统一安全策略，如域名白名单、URL 拦截、bridge action 白名单。
+| Action | 说明 |
+|--------|------|
+| `navigation.navigateTo` | 跳转到已注册路由 |
+| `navigation.goBack` | 返回上一页 |
+| `navigation.setTitle` | 修改页面标题 |
+| `ui.hideTabBar` | 隐藏底部 TabBar |
+| `ui.showTabBar` | 显示底部 TabBar |
+| `container.close` | 关闭当前容器 |
 
-## 生命周期治理
+### 数据注入
 
-容器需要记录：
+- `BRWebInitialData` — 通用数据模型（token / user / lang / extra）
+- 注入方式：`UserScript AT_DOCUMENT_START` → H5 直接读 `window.__BR_Data__`
+- 每个页面启动时重新注入（`onLoadStart` + `initialUserScripts`）
 
-- created / disposed：容器创建和销毁。
-- loadStart / loadStop / error / progress：传统页面加载。
-- historyUpdate：SPA 的 pushState、replaceState、hash 路由变化。
-- titleChanged：同步网页标题。
-- console：用于调试和日志采样。
+### 网络 & 系统信息
 
-这些事件不只用于 UI，也应该进入 APM：首屏慢、白屏、JS 错误、接口失败通常都需要结合生命周期判断。
+- `BRWebNetworkMonitor` — 自动监听 WiFi/移动网络/离线变化
+- `BRWebSystemInfo` — 设备型号/系统版本/App版本一键收集
 
-## 通信协议
+### 全链路日志
 
-Bridge 请求必须包含：
+- `CallbackBRWebLogger` — 将所有事件（生命周期/Bridge/H5 console/error/网络/自定义）通过 `onLog` 回调统一输出
+- 日志条目含时间戳、类型标签（📡⬆️⬇️📜💥🎨🦴）
+- 业务层自定义日志通过 `logger.native()` 混入
 
-- `id`：请求 ID，用于日志关联。
-- `action`：能力名，建议按 namespace 管理，如 `device.camera.takePhoto`。
-- `params`：参数对象，只传 JSON 可序列化数据。
+### 开发期合约检查 (BRWebDevGuard)
 
-响应统一为：
+- Debug 模式下自动检测回调绑定完整性
+- H5 调了 UI action 但 Native 没绑 `onUiRequest` → 立即打印 ⚠️ 警告
+- App 启动时可调用 `runStartupChecks()` 做全量检查
 
-- `ok=true, data=...`
-- `ok=false, error=...`
+## 权限体系
 
-不要让网页直接知道平台差异；平台差异由 Flutter handler 屏蔽。
+### Android
+```xml
+INTERNET, CAMERA, RECORD_AUDIO,
+READ_MEDIA_IMAGES, READ_MEDIA_VIDEO, READ_MEDIA_AUDIO,
+READ_EXTERNAL_STORAGE(maxSdkVersion=32),
+WRITE_EXTERNAL_STORAGE(maxSdkVersion=28)
+```
+
+### iOS
+```
+NSCameraUsageDescription, NSMicrophoneUsageDescription,
+NSPhotoLibraryUsageDescription, NSPhotoLibraryAddUsageDescription
+```
+
+### 运行时权限
+- `BRWebPermissionHelper.ensurePermission()` — 统一权限申请
+- 普通拒绝 → 弹说明窗 + 重试
+- 永久拒绝 → 弹窗引导跳系统设置
 
 ## 性能和稳定性
 
-- Tab 容器用 `IndexedStack` 或缓存路由，减少 WebView 重建。
-- 大文件用本地 path、临时 token 或上传任务 ID，避免 bridge 传 base64。
-- Bridge action 做白名单和参数校验，避免 H5 任意调用原生能力。
-- 权限按需申请，拒绝后给网页明确错误码。
-- 关闭页面、返回键、刷新、重试要由容器统一处理，避免每个网页重复造。
-- iOS/Android 分别真机验证相机、录音、文件选择，模拟器覆盖不够。
+- Tab 容器用 `IndexedStack`，减少 WebView 重建
+- 大文件传 path/id，不传 base64
+- Bridge action 参数校验 + 错误码统一
+- 权限按需申请，拒绝后返回清晰错误码
+- iOS/Android 真机验证相机、录音、文件选择
 
 ## 后续可增强
 
-- BR_Web JS SDK 单独发布 npm 包。
-- 支持离线包版本管理、预加载、校验和回滚。
-- 支持 Cookie/Token 注入和 SSO。
-- 支持 URL 白名单、scheme 拦截、下载管理。
-- 支持 bridge 权限矩阵和审计日志。
-- 支持 WebView 池化或预热。
+- BR_Web JS SDK 独立发布 npm 包（已完成：`br-web-bridge-vue`）
+- 支持离线包版本管理、预加载、校验和回滚
+- 支持 Cookie/Token 注入和 SSO
+- 支持 WebView 池化或预热
+- Stagewise / 21st toolbar 调试集成（已完成基础安装）

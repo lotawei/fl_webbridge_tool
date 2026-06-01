@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { useBridge } from '../composables/useBridge'
+import { useBridge } from 'br-web-bridge-vue'
 const { call, appendLog, logs } = useBridge()
 
 async function setTitle() {

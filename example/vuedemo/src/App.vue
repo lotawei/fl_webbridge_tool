@@ -1,13 +1,16 @@
 <script setup lang="ts">
-import { useBridge } from './composables/useBridge'
+import { useBridge, getBRData } from 'br-web-bridge-vue'
 import { computed } from 'vue'
+import { TwentyFirstToolbar, type ToolbarConfig } from '@21st-extension/toolbar-vue'
+
+const toolbarConfig: ToolbarConfig = { plugins: [] }
 
 const { logs, bridgeReady, isInWebView, call, appendLog } = useBridge()
 
-const brData = computed(() => (window as any).__BR_Data__ || {})
+const brData = computed(() => getBRData())
 const isLoggedIn = computed(() => !!brData.value.accessToken)
-const userName = computed(() => brData.value.user?.name || '')
-const lang = computed(() => brData.value.lang || 'zh-CN')
+const userName = computed(() => (brData.value.user as any)?.name ?? '')
+const lang = computed(() => (brData.value.lang as string) || 'zh-CN')
 
 // ====== 设备能力 ======
 async function takePhoto() { appendLog(await call('device.camera.takePhoto', { quality: 80, maxWidth: 1600 })) }
@@ -30,6 +33,7 @@ async function go(route: string) { appendLog(await call('navigation.navigateTo',
 </script>
 
 <template>
+  <TwentyFirstToolbar :config="toolbarConfig" />
   <div class="app">
     <header class="header">
       <h1>BR_Web Vue3 容器</h1>

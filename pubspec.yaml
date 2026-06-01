@@ -10,11 +10,14 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  audioplayers: ^6.1.0 #音频播放
-  file_picker: ^11.0.2 #文件筛选
+  audioplayers: ^6.1.0
+  connectivity_plus: ^6.1.0
+  device_info_plus: ^11.2.0
+  file_picker: ^11.0.2
   flutter_inappwebview: ^6.1.5  #webview
   image_gallery_saver: ^2.0.3 #保存相册
   image_picker: ^1.2.2   #选择图片
+  package_info_plus: ^8.2.0
   path_provider: ^2.1.5 
   permission_handler: ^12.0.1 #权限获取
   plugin_platform_interface: ^2.1.8  

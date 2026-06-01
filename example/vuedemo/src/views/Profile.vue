@@ -4,11 +4,11 @@
 
     <div class="card" v-if="brData.accessToken">
       <div class="row"><span class="label">Token</span><span class="value">{{ maskedToken }}</span></div>
-      <div class="row"><span class="label">用户</span><span class="value">{{ brData.user?.name || 'N/A' }}</span></div>
-      <div class="row"><span class="label">UserID</span><span class="value">{{ brData.user?.id || 'N/A' }}</span></div>
-      <div class="row"><span class="label">语言</span><span class="value">{{ brData.lang || 'N/A' }}</span></div>
-      <div class="row"><span class="label">App版本</span><span class="value">{{ brData.appVersion || 'N/A' }}</span></div>
-      <div class="row"><span class="label">系统版本</span><span class="value">{{ brData.systemVersion || 'N/A' }}</span></div>
+      <div class="row"><span class="label">用户</span><span class="value">{{ str(obj(brData.user).name) }}</span></div>
+      <div class="row"><span class="label">UserID</span><span class="value">{{ str(obj(brData.user).id) }}</span></div>
+      <div class="row"><span class="label">语言</span><span class="value">{{ str(brData.lang) }}</span></div>
+      <div class="row"><span class="label">App版本</span><span class="value">{{ str(brData.appVersion) }}</span></div>
+      <div class="row"><span class="label">系统版本</span><span class="value">{{ str(brData.systemVersion) }}</span></div>
     </div>
     <div class="card" v-else>
       <p class="dim">⚠️ 未收到 Native 注入数据（可能不在 WebView 中）</p>
@@ -20,13 +20,18 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { getBRData } from 'br-web-bridge-vue'
 
-const brData = computed(() => (window as any).__BR_Data__ || {})
+const brData = computed(() => getBRData())
 
 const maskedToken = computed(() => {
-  const t = brData.value.accessToken
+  const t = brData.value.accessToken as string | undefined
   return t ? t.slice(0, 12) + '****' + t.slice(-4) : 'N/A'
 })
+
+// Type helpers
+function str(v: unknown, fallback = 'N/A') { return (v as string) || fallback }
+function obj(v: unknown) { return (v as Record<string, unknown>) || {} }
 </script>
 
 <style scoped>

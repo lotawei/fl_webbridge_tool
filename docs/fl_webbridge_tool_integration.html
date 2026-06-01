@@ -5,92 +5,28 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>fl_webbridge_tool 集成手册</title>
   <style>
-    :root {
-      color-scheme: light;
-      --ink: #172033; --muted: #667085; --line: #e4e7ec;
-      --panel: #f7f9fc; --brand: #2563eb; --code: #101828;
-      --green: #16a34a; --amber: #d97706; --red: #dc2626;
-    }
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      color: var(--ink); background: #ffffff; line-height: 1.65;
-    }
-    header {
-      padding: 40px 24px 28px;
-      border-bottom: 1px solid var(--line);
-      background: linear-gradient(180deg, #f8fbff 0%, #ffffff 100%);
-    }
+    :root { color-scheme: light; --ink: #172033; --muted: #667085; --line: #e4e7ec; --panel: #f7f9fc; --brand: #2563eb; --code: #101828; --green: #16a34a; --amber: #d97706; --red: #dc2626; }
+    * { box-sizing: border-box; } body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: var(--ink); background: #fff; line-height: 1.65; }
+    header { padding: 40px 24px 28px; border-bottom: 1px solid var(--line); background: linear-gradient(180deg, #f8fbff 0%, #fff 100%); }
     main { max-width: 980px; margin: 0 auto; padding: 28px 24px 56px; }
-    h1, h2, h3 { line-height: 1.25; }
-    h1 { max-width: 980px; margin: 0 auto 10px; font-size: 34px; }
-    header p { max-width: 980px; margin: 0 auto; color: var(--muted); }
-    h2 { margin-top: 34px; padding-top: 24px; border-top: 1px solid var(--line); font-size: 24px; }
-    h3 { margin-top: 22px; font-size: 18px; }
+    h1, h2, h3 { line-height: 1.25; } h1 { max-width: 980px; margin: 0 auto 10px; font-size: 34px; } header p { max-width: 980px; margin: 0 auto; color: var(--muted); }
+    h2 { margin-top: 34px; padding-top: 24px; border-top: 1px solid var(--line); font-size: 24px; } h3 { margin-top: 22px; font-size: 18px; }
     p, li { color: #344054; }
-    code {
-      padding: 2px 6px; border-radius: 4px;
-      background: #eef4ff; color: #1849a9;
-      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-      font-size: 0.92em;
-    }
-    pre {
-      margin: 14px 0; padding: 16px; overflow: auto;
-      border: 1px solid var(--line); border-radius: 8px;
-      background: var(--code); color: #f9fafb;
-      font-size: 13px; line-height: 1.55;
-    }
+    code { padding: 2px 6px; border-radius: 4px; background: #eef4ff; color: #1849a9; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.92em; }
+    pre { margin: 14px 0; padding: 16px; overflow: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--code); color: #f9fafb; font-size: 13px; line-height: 1.55; }
     pre code { padding: 0; background: transparent; color: inherit; }
-    .note {
-      margin: 18px 0; padding: 14px 16px;
-      border-left: 4px solid var(--brand);
-      background: var(--panel); color: #344054;
-    }
-    .warn {
-      margin: 18px 0; padding: 14px 16px;
-      border-left: 4px solid var(--amber);
-      background: #fffbeb; color: #92400e;
-    }
-    .checklist li { margin: 7px 0; }
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
-      gap: 12px; margin: 16px 0;
-    }
-    .tile {
-      padding: 14px; border: 1px solid var(--line);
-      border-radius: 8px; background: #ffffff;
-    }
-    .tile strong { display: block; margin-bottom: 6px; }
-    table {
-      width: 100%; border-collapse: collapse; margin: 16px 0;
-      font-size: 14px;
-    }
-    th, td {
-      padding: 10px 12px; border: 1px solid var(--line);
-      text-align: left; vertical-align: top;
-    }
-    th { background: var(--panel); font-weight: 600; }
-    td code { font-size: 0.9em; }
-    .tag {
-      display: inline-block; padding: 1px 8px; border-radius: 10px;
-      font-size: 11px; font-weight: 600; vertical-align: middle; margin-left: 6px;
-    }
-    .tag-new { background: #dcfce7; color: var(--green); }
-    .tag-upd { background: #fef3c7; color: var(--amber); }
-    footer {
-      max-width: 980px; margin: 0 auto;
-      padding: 0 24px 36px; color: var(--muted);
-    }
-    nav { margin-bottom: 12px; }
-    nav a { color: var(--brand); margin-right: 16px; font-size: 14px; }
+    .note { margin: 18px 0; padding: 14px 16px; border-left: 4px solid var(--brand); background: var(--panel); color: #344054; }
+    .warn { margin: 18px 0; padding: 14px 16px; border-left: 4px solid var(--amber); background: #fffbeb; color: #92400e; }
+    table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 14px; } th, td { padding: 10px 12px; border: 1px solid var(--line); text-align: left; vertical-align: top; } th { background: var(--panel); font-weight: 600; } td code { font-size: 0.9em; }
+    .tag { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; vertical-align: middle; margin-left: 6px; } .tag-new { background: #dcfce7; color: var(--green); }
+    footer { max-width: 980px; margin: 0 auto; padding: 0 24px 36px; color: var(--muted); }
+    nav { margin-bottom: 12px; } nav a { color: var(--brand); margin-right: 16px; font-size: 14px; }
   </style>
 </head>
 <body>
   <header>
     <h1>fl_webbridge_tool 集成手册</h1>
-    <p>Flutter 壳 + H5 业务容器 + Bridge 双向通信 + 全链路日志 + App 生命周期感知</p>
+    <p>Flutter 壳 + H5 业务容器 + Bridge 双向通信 + 全链路日志 + 权限管理 + 网络监听 + 系统信息 + 开发期合约检查</p>
   </header>
 
   <main>
@@ -99,46 +35,34 @@
       <a href="#h5-api">H5 → 原生 API</a>
       <a href="#native-api">原生 → H5 事件</a>
       <a href="#logging">全链路日志</a>
-      <a href="#lifecycle">App 生命周期</a>
       <a href="#navigator">路由导航</a>
-      <a href="#mcp">MCP 调试</a>
+      <a href="#injection">数据注入</a>
+      <a href="#net-info">网络 & 系统信息</a>
+      <a href="#devguard">开发期合约检查</a>
+      <a href="#vue">Vue3 插件</a>
+      <a href="#permissions">平台权限</a>
       <a href="#extend">扩展能力</a>
     </nav>
 
     <!-- ═══════════════════════════════════════════════ -->
     <h2 id="quickstart">0. 快速开始</h2>
 
-    <h3>0.1 仓库结构</h3>
-    <pre><code>fl_webbridge_tool/
-  lib/src/              # 核心实现
-  example/              # Demo App（Vue3 + 3 Tab）
-    lib/main.dart
-    vuedemo/src/
-      composables/useBridge.ts     # Bridge 通信封装
-      composables/useBRData.ts     # 注入数据读取
-      composables/useAppLifecycle.ts # App 生命周期感知
-      components/Home.vue
-      components/BridgeDemo.vue
-  docs/                 # 本文档</code></pre>
-
-    <h3>0.2 添加依赖</h3>
+    <h3>0.1 依赖</h3>
     <pre><code># pubspec.yaml
 dependencies:
   fl_webbridge_tool:
-    path: ../fl_webbridge_tool          # 本地
+    path: ../fl_webbridge_tool
     # 或 Git：
     # git:
     #   url: https://github.com/your/fl_webbridge_tool.git
     #   ref: v0.1.0</code></pre>
 
-    <h3>0.3 最小接入</h3>
+    <h3>0.2 最小接入</h3>
     <pre><code>import 'package:fl_webbridge_tool/fl_webbridge_tool.dart';
 import 'package:flutter/material.dart';
 
 void main() {
-  WidgetsFlutterBinding.ensureInitialized();
   runApp(MaterialApp(
-    navigatorObservers: [BRWebRouteObserver()],
     home: BRWebContainerPage(
       title: '业务页',
       url: 'https://your-domain.example/page',
@@ -148,338 +72,202 @@ void main() {
 
     <!-- ═══════════════════════════════════════════════ -->
     <h2 id="h5-api">1. H5 → 原生 API 参考</h2>
-    <p>所有 action 通过 <code>window.BR_WebContainer.call(action, params)</code> 调用，返回 Promise。</p>
+
+    <table>
+      <tr><th>Action</th><th>说明</th><th>相关权限</th></tr>
+      <tr><td><code>device.camera.takePhoto</code></td><td>拍照（默认存系统相册）</td><td>CAMERA</td></tr>
+      <tr><td><code>device.camera.takeVideo</code></td><td>录像（默认存系统相册）</td><td>CAMERA + MICROPHONE</td></tr>
+      <tr><td><code>device.camera.pickVideo</code></td><td>从相册选视频</td><td>PHOTOS</td></tr>
+      <tr><td><code>device.file.pick</code></td><td>文件选择</td><td>-</td></tr>
+      <tr><td><code>device.file.preview</code></td><td>预览文件（图片/视频/音频）</td><td>-</td></tr>
+      <tr><td><code>device.file.delete</code></td><td>删除本地文件</td><td>-</td></tr>
+      <tr><td><code>device.audio.startRecord</code></td><td>开始录音</td><td>MICROPHONE</td></tr>
+      <tr><td><code>device.audio.stopRecord</code></td><td>停止录音</td><td>-</td></tr>
+      <tr><td><code>device.network.status</code></td><td>查询网络状态</td><td>-</td></tr>
+      <tr><td><code>device.system.info</code></td><td>查询设备/系统信息</td><td>-</td></tr>
+      <tr><td><code>navigation.navigateTo</code></td><td>跳转到已注册路由</td><td>-</td></tr>
+      <tr><td><code>navigation.goBack</code></td><td>返回上一页</td><td>-</td></tr>
+      <tr><td><code>navigation.setTitle</code></td><td>修改页面标题</td><td>-</td></tr>
+      <tr><td><code>ui.hideTabBar</code></td><td>隐藏底部 TabBar</td><td>-</td></tr>
+      <tr><td><code>ui.showTabBar</code></td><td>显示底部 TabBar</td><td>-</td></tr>
+      <tr><td><code>container.close</code></td><td>关闭当前容器</td><td>-</td></tr>
+    </table>
 
     <h3>1.1 📷 拍照</h3>
-    <pre><code>await BR_WebContainer.call('device.camera.takePhoto', {
-  maxWidth:   1600,        // 可选，最大宽度 px
-  maxHeight:  1600,        // 可选，最大高度 px
-  maxSizeKB:  1024,        // 可选，最大文件大小 KB，默认 1024（1MB）
-  saveToGallery: true,     // 可选，默认 true → 存入系统相册
-});</code></pre>
-    <p><strong>返回：</strong></p>
-    <pre><code>{
-  cancelled: false,
-  path:      "/tmp/photo_xxx.jpg",
-  name:      "photo_xxx.jpg",
-  mimeType:  "image/jpeg",
-  size:      345678,         // 字节数
-  sizeKB:    337,            // KB
-  savedToGallery: true,
-  galleryPath: "file:///..."  // iOS 相册路径
-}</code></pre>
-
-    <h3>1.2 🖼️ 从相册选照片 <span class="tag tag-new">新增</span></h3>
-    <pre><code>await BR_WebContainer.call('device.camera.pickPhoto', {
-  maxWidth:   1600,
-  maxSizeKB:  1024,        // 默认 1MB
-});</code></pre>
-    <p>返回格式同 1.1（无 savedToGallery 字段）。</p>
-
-    <div class="note"><strong>压缩策略：</strong> 默认 ≤1MB。如果原图超限，自动用 quality:85 → 60 → 40 → 20 → 10 逐级压降，直到满足上限。要更大上限传 <code>maxSizeKB: 102400</code>，要不压缩传极大值。</div>
-
-    <h3>1.3 🎥 录像</h3>
-    <pre><code>await BR_WebContainer.call('device.camera.takeVideo', {
-  maxDuration:  15,              // 最大时长 秒，默认 30
-  camera:       'rear',          // 'rear' | 'front'，默认 rear
-  saveToGallery: true,           // 默认 true
-});</code></pre>
-
-    <h3>1.4 🎬 从相册选视频</h3>
-    <pre><code>await BR_WebContainer.call('device.camera.pickVideo', {
-  maxDuration: 600,             // 默认 600 秒
-});</code></pre>
-
-    <h3>1.5 📂 选择文件</h3>
-    <pre><code>await BR_WebContainer.call('device.file.pick', {
-  multiple: true,               // 是否多选
-});</code></pre>
-    <p><strong>返回：</strong></p>
-    <pre><code>{
-  cancelled: false,
-  files: [{ name: "xxx.pdf", path: "/tmp/xxx", size: 123456, extension: "pdf" }]
-}</code></pre>
-
-    <h3>1.6 👁️ 预览文件</h3>
-    <pre><code>await BR_WebContainer.call('device.file.preview', {
-  path:      "/tmp/photo.jpg",
-  type:      "image",          // "image" | "video" | "audio"
-  title:     "预览",
-  mimeType:  "image/jpeg",    // 可选
-});</code></pre>
-
-    <h3>1.7 🗑️ 删除文件</h3>
-    <pre><code>await BR_WebContainer.call('device.file.delete', {
-  path: "/tmp/photo.jpg",
-});</code></pre>
-
-    <h3>1.8 🎙️ 录音</h3>
-    <pre><code>// 开始录音
-await BR_WebContainer.call('device.audio.startRecord');
-// → { recording: true, path: "/path/to/xxx.m4a" }
-
-// 停止录音
-await BR_WebContainer.call('device.audio.stopRecord');
-// → { recording: false, path: "/path/to/xxx.m4a" }</code></pre>
-    <div class="note">录音文件存 <code>documents</code> 目录，不会被系统 temp 清理。</div>
-
-    <h3>1.9 🧭 导航控制</h3>
-    <pre><code>// 跳转新页面（需先在 Flutter 侧注册路由）
-await BR_WebContainer.call('navigation.navigateTo', {
-  route:  '/h2',
-  params: { id: 123 },        // 可选，传给目标页
+    <pre><code>await call('device.camera.takePhoto', {
+  quality: 80, maxWidth: 1600, saveToGallery: true,
 });
+// → { cancelled: false, path: "/tmp/xxx.jpg", savedToGallery: true, ... }</code></pre>
 
-// 返回上一页
-await BR_WebContainer.call('navigation.goBack');
-
-// 设置页面标题
-await BR_WebContainer.call('navigation.setTitle', {
-  title: '新标题',
+    <h3>1.2 🎥 录像</h3>
+    <pre><code>await call('device.camera.takeVideo', {
+  maxDuration: 15, camera: 'rear', saveToGallery: true,
 });</code></pre>
 
-    <h3>1.10 🎨 UI 控制</h3>
-    <pre><code>await BR_WebContainer.call('ui.hideTabBar');
-await BR_WebContainer.call('ui.showTabBar');</code></pre>
-
-    <h3>1.11 🚪 关闭容器</h3>
-    <pre><code>await BR_WebContainer.call('container.close', {
-  reason: 'h5_request',
+    <h3>1.3 👁️ 预览文件</h3>
+    <pre><code>await call('device.file.preview', {
+  path: "/tmp/photo.jpg", type: "image", title: "预览",
 });</code></pre>
+
+    <h3>1.4 🗑️ 删除文件</h3>
+    <pre><code>await call('device.file.delete', { path: "/tmp/photo.jpg" });</code></pre>
+
+    <h3>1.5 🧭 导航控制</h3>
+    <pre><code>await call('navigation.navigateTo', { route: '/h2', params: { id: 123 } });
+await call('navigation.goBack');
+await call('navigation.setTitle', { title: '新标题' });</code></pre>
+
+    <h3>1.6 🎨 UI 控制</h3>
+    <pre><code>await call('ui.hideTabBar');
+await call('ui.showTabBar');</code></pre>
 
     <!-- ═══════════════════════════════════════════════ -->
-    <h2 id="native-api">2. 原生 → H5 事件（H5 接收）</h2>
-    <p>Flutter 侧通过 <code>BRWebBridge.callWeb(method, params)</code> 推送到 H5，在 <code>window.BR_WebContainer.__nativeCall(payload)</code> 中接收。</p>
-
-    <h3>2.1 App 生命周期 <span class="tag tag-new">新增</span></h3>
+    <h2 id="native-api">2. 原生 → H5 事件</h2>
     <table>
-      <tr><th>事件</th><th>payload.method</th><th>payload.params</th></tr>
-      <tr><td>App 回到前台</td><td><code>app.lifecycle</code></td><td><code>{ state: 'foreground', timestamp }</code></td></tr>
-      <tr><td>App 进入后台</td><td><code>app.lifecycle</code></td><td><code>{ state: 'background', timestamp }</code></td></tr>
-      <tr><td>App 非活跃</td><td><code>app.lifecycle</code></td><td><code>{ state: 'inactive', timestamp }</code></td></tr>
-      <tr><td>容器销毁</td><td><code>app.lifecycle</code></td><td><code>{ state: 'disposed', timestamp }</code></td></tr>
-      <tr><td>页面可见</td><td><code>page.visibility</code></td><td><code>{ visible: true, timestamp }</code></td></tr>
-      <tr><td>页面被覆盖</td><td><code>page.visibility</code></td><td><code>{ visible: false, timestamp }</code></td></tr>
-    </table>
-
-    <h3>2.2 WebView 生命周期</h3>
-    <table>
-      <tr><th>事件</th><th>payload.method</th><th>payload.params</th></tr>
+      <tr><th>事件</th><th>method</th><th>params</th></tr>
       <tr><td>加载开始</td><td><code>container.lifecycle</code></td><td><code>{ type: 'loadStart', url }</code></td></tr>
       <tr><td>加载完成</td><td><code>container.lifecycle</code></td><td><code>{ type: 'loadStop', url }</code></td></tr>
+      <tr><td>网络变化</td><td><code>container.lifecycle</code></td><td><code>{ type: 'networkChange', status }</code></td></tr>
+      <tr><td>任意自定义</td><td>自定义</td><td>自定义</td></tr>
     </table>
-
-    <h3>2.3 Flutter 主动调用</h3>
-    <pre><code>// Flutter → H5
-bridge.callWeb('native.ping', { time: DateTime.now().toIso8601String() });
-
-// 任意自定义事件
-bridge.callWeb('payment.success', { orderId: 'xxx', amount: 99.00 });</code></pre>
-    <p>H5 侧接收（链式处理，多个 composable 共存）：</p>
-    <pre><code>// 在 useBridge / useAppLifecycle 中已自动挂载
+    <pre><code>// H5 接收
 window.BR_WebContainer.__nativeCall = (payload) => {
-  // payload = { method: 'app.lifecycle', params: { state: 'foreground' } }
   console.log('收到原生调用', payload);
   return { received: true };
 }</code></pre>
 
     <!-- ═══════════════════════════════════════════════ -->
-    <h2 id="logging">3. 全链路日志系统 <span class="tag tag-new">新增</span></h2>
+    <h2 id="logging">3. 全链路日志系统</h2>
 
-    <h3>3.1 零侵入接入</h3>
-    <pre><code>// Flutter 侧：一行注册
-MaterialApp(
-  navigatorObservers: [BRWebRouteObserver()],
-  home: Scaffold(
-    body: IndexedStack(children: [
-      HomePage(),
-      BRWebContainerPage(... logger: BRWebGlobalLog.adapter ...),
-      BRWebGlobalLogPage(maxEntries: 300),     // 日志查看页
-    ]),
-    bottomNavigationBar: BRWebLoggableBottomBar(  // Tab 自动日志
-      selectedIndex: _index,
-      onTabChanged: (from, to, _) => setState(() => _index = to),
-      tabs: const [
-        ('home', '首页', Icons.home),
-        ('web', '业务', Icons.web_asset),
-        ('logs', '日志', Icons.receipt_long),
-      ],
-    ),
-  ),
+    <h3>3.1 使用 CallbackBRWebLogger</h3>
+    <pre><code>final logger = CallbackBRWebLogger(onLog: (entry) => _logs.insert(0, entry.toString()));
+
+BRWebContainerPage(
+  logger: logger,
+  onUiRequest: (action, _) => logger.uiRequest(action, null),
+  onTitleRequest: (title) => logger.native('setTitle', detail: title),
 )</code></pre>
 
     <h3>3.2 任意位置写日志</h3>
-    <pre><code>// 原生 / 业务代码任意位置 — 一行记录
-BRWebGlobalLog.instance.native('支付成功', detail: '¥99.00');
-BRWebGlobalLog.instance.native('用户点击', detail: '提交订单');
-BRWebGlobalLog.instance.native('API', detail: 'POST /login → 200');</code></pre>
+    <pre><code>logger.native('支付成功', detail: '¥99.00');
+logger.native('API', detail: 'POST /login → 200');
+logger.uiRequest('hideTabBar', null);</code></pre>
 
     <h3>3.3 自动捕获的事件</h3>
     <table>
-      <tr><th>事件类型</th><th>触发方式</th><th>日志标签</th></tr>
-      <tr><td>路由 push/pop</td><td>BRWebRouteObserver 自动</td><td><code>🦴 路由 push /detail</code></td></tr>
-      <tr><td>Tab 切换</td><td>BRWebLoggableBottomBar 自动</td><td><code>🦴 Tab 切换 [0→1]</code></td></tr>
-      <tr><td>WebView 生命周期</td><td>BRWebContainerPage 内部</td><td><code>📡 loadStart / loadStop</code></td></tr>
-      <tr><td>Bridge 请求</td><td>BRWebBridge 自动</td><td><code>⬆️ REQ [action]</code></td></tr>
-      <tr><td>Bridge 响应</td><td>BRWebBridge 自动</td><td><code>⬇️ RES id</code></td></tr>
-      <tr><td>H5 Console</td><td>onConsoleMessage</td><td><code>📜 message</code></td></tr>
-      <tr><td>H5 JS 错误</td><td>onReceivedError</td><td><code>💥 error</code></td></tr>
-      <tr><td>App 前后台</td><td>WidgetsBindingObserver</td><td><code>🦴 App foreground</code></td></tr>
-      <tr><td>页面显隐</td><td>RouteAware 自动</td><td><code>🦴 Page visible</code></td></tr>
+      <tr><th>事件</th><th>触发方式</th><th>标签</th></tr>
+      <tr><td>WebView 生命周期</td><td>容器内部自动</td><td>📡 loadStart / loadStop / progress</td></tr>
+      <tr><td>Bridge 请求/响应</td><td>BRWebBridge 自动</td><td>⬆️ REQ / ⬇️ RES</td></tr>
+      <tr><td>H5 Console</td><td>onConsoleMessage</td><td>📜 message</td></tr>
+      <tr><td>H5 JS 错误</td><td>onReceivedError</td><td>💥 error</td></tr>
+      <tr><td>网络变化</td><td>BRWebNetworkMonitor</td><td>🦴 Network changed</td></tr>
+      <tr><td>自定义</td><td>logger.native()</td><td>🦴 任意文本</td></tr>
     </table>
 
-    <h3>3.4 日志查看页功能</h3>
-    <ul>
-      <li>🔍 搜索栏 — 实时过滤关键词</li>
-      <li>📋 每条可长按选中复制</li>
-      <li>🎨 按类型颜色编码（左边色条 + 淡底色）</li>
-      <li>📂 类型筛选 — NAT / LIF / REQ / RES / LOG / ERR</li>
-      <li>🧹 一键清空</li>
-      <li>🌓 自动适配亮色/暗色模式</li>
-    </ul>
-
     <!-- ═══════════════════════════════════════════════ -->
-    <h2 id="lifecycle">4. App 生命周期感知（H5 侧） <span class="tag tag-new">新增</span></h2>
-    <pre><code>import { useAppLifecycle } from './composables/useAppLifecycle'
+    <h2 id="navigator">4. 路由导航</h2>
 
-const { appState, pageVisible, label } = useAppLifecycle()
-
-// appState: ref<'foreground' | 'background' | 'inactive' | ...'>
-// pageVisible: ref<boolean>
-// label(): '🟢 foreground · 可见'
-
-// 监听变化
-watch(appState, (state) => {
-  if (state === 'background') pauseMedia()
-  if (state === 'foreground') resumeMedia()
-})</code></pre>
-    <p>模板中直接显示：<code>&#123;&#123; label() &#125;&#125;</code> → <code>🟢 foreground · 可见</code></p>
-
-    <!-- ═══════════════════════════════════════════════ -->
-    <h2 id="navigator">5. 路由导航</h2>
-
-    <h3>5.1 注册路由</h3>
-    <pre><code>// 注册 WebView 路由
-BRWebNavigator.register('/h1', BRWebRouteConfig(
-  url: 'assets/h5/demo.html', title: 'H1 首页',
-));
+    <h3>4.1 注册路由</h3>
+    <pre><code>// WebView 路由
+BRWebNavigator.register('/h1', BRWebRouteConfig(url: 'assets/h5/demo.html', title: 'H1'));
 BRWebNavigator.register('/vue', BRWebRouteConfig(
-  url: 'http://172.16.2.158:5173',
-  title: 'Vue3 演示',
-  initialData: BRWebInitialData(
-    accessToken: 'xxx',
-    userData: {'id': '1001', 'name': 'lotawei'},
-    lang: 'zh',
-  ),
+  url: 'http://172.16.2.158:5173', title: 'Vue3',
+  initialData: BRWebInitialData(accessToken: 'xxx', lang: 'zh'),
 ));
 
-// 注册原生页面路由
+// 原生页面路由
 BRWebNavigator.registerNative('/settings', (ctx, params) => SettingsPage());</code></pre>
 
-    <h3>5.2 跳转</h3>
-    <pre><code>// Flutter 侧
-BRWebNavigator.push(context, '/h2', params: { id: 123 });
-BRWebNavigator.pop(context);
-
-// H5 侧
-await BR_WebContainer.call('navigation.navigateTo', { route: '/h2' });
-await BR_WebContainer.call('navigation.goBack');</code></pre>
-
-    <div class="warn"><strong>注意：</strong> BRWebNavigator.push() 创建的页面会自动注入全局日志适配器，无需手动传 logger。</div>
+    <h3>4.2 跳转</h3>
+    <pre><code>BRWebNavigator.push(context, '/h2', params: { id: 123 });
+BRWebNavigator.pop(context);</code></pre>
 
     <!-- ═══════════════════════════════════════════════ -->
-    <h2 id="mcp">6. MCP 调试工具 <span class="tag tag-new">新增</span></h2>
-    <p>集成 <code>flutter-mcp-toolkit</code> 后，Hermes / Claude Code 等 AI Agent 可直接操控运行中的 Flutter App。</p>
-
-    <h3>6.1 安装</h3>
-    <pre><code>curl -fsSL https://raw.githubusercontent.com/Arenukvern/mcp_flutter/main/install.sh | bash</code></pre>
-
-    <h3>6.2 main.dart 集成</h3>
-    <pre><code>import 'dart:async';
-import 'package:mcp_toolkit/mcp_toolkit.dart';
-
-void main() {
-  runZonedGuarded(() {
-    WidgetsFlutterBinding.ensureInitialized();
-    MCPToolkitBinding.instance..initialize()..initializeFlutterToolkit();
-    runApp(MyApp());
-  }, (error, stack) => MCPToolkitBinding.instance.handleZoneError(error, stack));
-}</code></pre>
-
-    <h3>6.3 Hermes 配置</h3>
-    <pre><code># ~/.hermes/config.yaml
-mcp_servers:
-  flutter:
-    command: flutter-mcp-toolkit-server
-    args: [--dart-vm-host=localhost, --dart-vm-port=8181,
-           --resources, --images, --dynamics]
-    timeout: 120</code></pre>
-
-    <h3>6.4 可用 MCP 工具（举例）</h3>
-    <ul>
-      <li><code>fmt_semantic_snapshot</code> — 抓取交互 widget 树</li>
-      <li><code>fmt_tap_widget</code> — 点击指定 ref 的 widget</li>
-      <li><code>fmt_capture_ui_snapshot</code> — 截图 + 视图详情 + 错误</li>
-      <li><code>fmt_hot_reload_flutter</code> — 热重载</li>
-      <li><code>fmt_get_recent_logs</code> — 获取 print 日志</li>
-      <li>更多见 <a href="https://github.com/Arenukvern/mcp_flutter">mcp_flutter README</a></li>
-    </ul>
+    <h2 id="injection">5. 通用数据注入</h2>
+    <pre><code>BRWebContainerPage(
+  url: 'https://domain.com/h1',
+  initialData: BRWebInitialData(
+    accessToken: 'eyJ...',
+    userData: {'id': '123', 'name': '张三'},
+    lang: 'zh-CN',
+    extra: {'appVersion': '1.0.0'},
+  ),
+)</code></pre>
+    <p>注入方式：<code>UserScript AT_DOCUMENT_START</code> → H5 直接读 <code>window.__BR_Data__</code>，无需 bridge。</p>
 
     <!-- ═══════════════════════════════════════════════ -->
-    <h2 id="extend">7. 扩展业务能力</h2>
-    <pre><code>class AppCapabilityHandler implements BRWebCapabilityHandler {
-  @override
-  Future&lt;Object?&gt; handle(BuildContext context, BRWebBridgeMessage message) async {
-    return switch (message.action) {
-      'user.getToken'    => {'token': 'your-token'},
-      'payment.create'   => _createPayment(message.params),
-      'analytics.track'  => _trackEvent(message.params),
-      _ => BRWebCapabilityHandlerResult.notHandled,  // 交给下一个 handler
-    };
-  }
-}
+    <h2 id="net-info">6. 网络监听 & 系统信息</h2>
 
-// 链式注册：自定义 → 默认（拍照/录音等）
-BRWebContainerPage(
-  capabilityHandler: CompositeBRWebCapabilityHandler([
-    AppCapabilityHandler(),
-    DefaultBRWebCapabilityHandler(),
-  ]),
-);</code></pre>
+    <h3>6.1 网络监听</h3>
+    <pre><code>final monitor = BRWebNetworkMonitor(
+  logger: logger,
+  onChanged: (status) => logger.native('Network: $status'),
+);
+monitor.start();</code></pre>
+    <p>H5 查询：<code>call('device.network.status')</code> → <code>{ status: "wifi" }</code></p>
+
+    <h3>6.2 系统信息</h3>
+    <pre><code>final info = await BRWebSystemInfo.collect(logger: logger);
+DefaultBRWebCapabilityHandler.systemInfo = info;
+// → iPhone 15 Pro / iOS 18.0 / app v1.0.0(42)</code></pre>
+    <p>H5 查询：<code>call('device.system.info')</code> → 完整设备/系统信息</p>
 
     <!-- ═══════════════════════════════════════════════ -->
-    <h2 id="vue">8. Vue3 前端封装</h2>
-
-    <h3>8.1 useBridge — Bridge 通信</h3>
-    <pre><code>import { useBridge } from '../composables/useBridge'
-
-const { logs, bridgeReady, isInWebView, call, appendLog } = useBridge()
-
-// 调用原生能力
-const result = await call('device.camera.takePhoto', { maxWidth: 1600 })
-appendLog(result)  // 同步记录到本地日志面板</code></pre>
-    <p>浏览器模式自动降级为 mock 返回，方便本地开发。</p>
-
-    <h3>8.2 useBRData — 注入数据 <span class="tag tag-new">新增</span></h3>
-    <pre><code>import { useBRData } from '../composables/useBRData'
-
-const { brData, isLoggedIn, userName, lang } = useBRData()
-
-isLoggedIn()  // → true | false
-userName()    // → "lotawei"
-lang()        // → "zh"
-brData.value  // → { accessToken, user: {id,name}, lang, ... }</code></pre>
-    <p>数据由 Flutter 侧通过 <code>initialUserScripts + AT_DOCUMENT_START</code> 注入为 <code>window.__BR_Data__</code>，H5 无需 bridge 即可同步读取。</p>
-
-    <h3>8.3 useAppLifecycle — 生命周期 <span class="tag tag-new">新增</span></h3>
-    <pre><code>import { useAppLifecycle } from '../composables/useAppLifecycle'
-
-const { appState, pageVisible, label } = useAppLifecycle()
-
-watch(appState, s => s === 'background' ? pause() : resume())</code></pre>
+    <h2 id="devguard">7. 开发期合约检查 (Dev Guard)</h2>
+    <pre><code>BRWebContainerPage(
+  capabilityHandler: BRWebDevGuard(
+    inner: myHandler,
+    logger: _logger,
+  ),
+  // ← Debug 模式下，H5 调 ui.hideTabBar 但没绑 onUiRequest → 打印 ⚠️ 警告
+)</code></pre>
+    <div class="warn"><strong>作用：</strong>Debug 模式下自动检测回调是否绑好。H5 调了 event 但 Native 没绑回调 → 立即警告，防止带 bug 发布。</div>
 
     <!-- ═══════════════════════════════════════════════ -->
-    <h2>9. 平台权限配置</h2>
+    <h2 id="vue">8. Vue3 插件 <code>br-web-bridge-vue</code></h2>
+
+    <h3>8.1 安装</h3>
+    <pre><code>npm install br-web-bridge-vue</code></pre>
+
+    <h3>8.2 使用 Composable</h3>
+    <pre><code>&lt;script setup lang="ts"&gt;
+import { useBridge, getBRData } from 'br-web-bridge-vue'
+
+const { takePhoto, takeVideo, navigateTo, hideTabBar, logs } = useBridge()
+const token = getBRData().accessToken  // ← Native 注入的通用数据
+&lt;/script&gt;
+
+&lt;template&gt;
+  &lt;button @click="takePhoto()"&gt;📷 拍照&lt;/button&gt;
+  &lt;button @click="navigateTo({ route: '/h2' })"&gt;➡️ 跳转&lt;/button&gt;
+  &lt;div v-for="l in logs" :key="l.time"&gt;{{ l.text }}&lt;/div&gt;
+&lt;/template&gt;</code></pre>
+
+    <h3>8.3 Low-level API</h3>
+    <pre><code>import { brCall, getBRData, waitForBridge } from 'br-web-bridge-vue'
+
+await waitForBridge()
+const result = await brCall('device.camera.takePhoto', { quality: 80 })</code></pre>
+
+    <h3>8.4 可用方法</h3>
+    <table>
+      <tr><th>方法</th><th>说明</th></tr>
+      <tr><td><code>takePhoto()</code></td><td>拍照</td></tr>
+      <tr><td><code>takeVideo()</code></td><td>录像</td></tr>
+      <tr><td><code>pickVideo()</code></td><td>从相册选视频</td></tr>
+      <tr><td><code>startRecord() / stopRecord()</code></td><td>录音</td></tr>
+      <tr><td><code>pickFile()</code></td><td>选择文件</td></tr>
+      <tr><td><code>previewFile(params)</code></td><td>预览文件</td></tr>
+      <tr><td><code>deleteFile(path)</code></td><td>删除文件</td></tr>
+      <tr><td><code>navigateTo() / goBack() / setTitle()</code></td><td>导航</td></tr>
+      <tr><td><code>hideTabBar() / showTabBar()</code></td><td>UI 控制</td></tr>
+      <tr><td><code>getNetworkStatus() / getSystemInfo()</code></td><td>设备查询</td></tr>
+      <tr><td><code>closePage()</code></td><td>关闭容器</td></tr>
+    </table>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <h2 id="permissions">9. 平台权限配置</h2>
+
     <h3>Android</h3>
     <pre><code>&lt;uses-permission android:name="android.permission.INTERNET"/&gt;
 &lt;uses-permission android:name="android.permission.CAMERA"/&gt;
@@ -487,7 +275,8 @@ watch(appState, s => s === 'background' ? pause() : resume())</code></pre>
 &lt;uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/&gt;
 &lt;uses-permission android:name="android.permission.READ_MEDIA_VIDEO"/&gt;
 &lt;uses-permission android:name="android.permission.READ_MEDIA_AUDIO"/&gt;
-&lt;uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32"/&gt;</code></pre>
+&lt;uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32"/&gt;
+&lt;uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28"/&gt;</code></pre>
 
     <h3>iOS</h3>
     <pre><code>&lt;key&gt;NSCameraUsageDescription&lt;/key&gt;&lt;string&gt;用于拍照和录像。&lt;/string&gt;
@@ -496,19 +285,27 @@ watch(appState, s => s === 'background' ? pause() : resume())</code></pre>
 &lt;key&gt;NSPhotoLibraryAddUsageDescription&lt;/key&gt;&lt;string&gt;用于保存到系统相册。&lt;/string&gt;</code></pre>
 
     <!-- ═══════════════════════════════════════════════ -->
-    <h2>10. 性能与最佳实践</h2>
-    <ul>
-      <li>Tab 场景用 <code>IndexedStack</code> 缓存 WebView，避免频繁销毁重建。</li>
-      <li>大文件不通过 Bridge 传 base64，传 path / id。</li>
-      <li>拍照默认 ≤1MB（<code>maxSizeKB: 1024</code>），可调。</li>
-      <li>Bridge 请求自动走全局日志，无需手动记录。</li>
-      <li>SPA 页面关注 history 变化，不能只依赖 <code>onLoadStop</code>。</li>
-    </ul>
-  </main>
+    <h2 id="extend">10. 扩展业务能力</h2>
+    <pre><code>class AppCapabilityHandler implements BRWebCapabilityHandler {
+  @override
+  Future&lt;Object?&gt; handle(BuildContext context, BRWebBridgeMessage message) async {
+    return switch (message.action) {
+      'user.getToken'   => {'token': 'your-token'},
+      'payment.create'  => _createPayment(message.params),
+      _ => BRWebCapabilityHandlerResult.notHandled,
+    };
+  }
+}
 
-  <footer>
-    fl_webbridge_tool v0.1.0 · 最后更新 2026-05 · 
-    <a href="https://github.com/Arenukvern/mcp_flutter">MCP Toolkit</a>
-  </footer>
+BRWebContainerPage(
+  capabilityHandler: CompositeBRWebCapabilityHandler([
+    AppCapabilityHandler(),
+    DefaultBRWebCapabilityHandler(),
+  ]),
+);</code></pre>
+
+    <div class="note"><strong>BRWebDevGuard 包裹：</strong> 建议在 handler 外层用 <code>BRWebDevGuard</code> 包裹，Debug 模式下自动检查回调完整性。</div>
+  </main>
+  <footer>&copy; 2026 fl_webbridge_tool</footer>
 </body>
 </html>
