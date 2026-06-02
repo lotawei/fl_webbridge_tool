@@ -96,7 +96,7 @@ class _DemoAppState extends State<DemoApp> {
                 destinations: const [
                   NavigationDestination(
                     icon: Icon(Icons.home_outlined),
-                    label: '原生',
+                    label: '待办',
                   ),
                   NavigationDestination(
                     icon: Icon(Icons.web_asset),
@@ -117,7 +117,7 @@ class _DemoAppState extends State<DemoApp> {
     return switch (index) {
       0 => NativeHomePage(onOpenWeb: () => setState(() => _index = 1)),
       1 => BRWebContainerPage(
-        url: 'http://localhost:5173/',
+        initialUrl: 'http://172.16.2.158:5173/',
         title: 'Vue3 Demo',
         logger: _logger,
         initialData: BRWebInitialData(
@@ -174,6 +174,7 @@ class NativeHomePage extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
+         
           Text(
             '通用 BR_Web 容器方案',
             style: Theme.of(context).textTheme.headlineSmall,
@@ -233,7 +234,7 @@ class ProfilePage extends StatelessWidget {
         ],
       ),
     );
-  }
+ }
 
   Widget _row(String label, String value) {
     return Padding(

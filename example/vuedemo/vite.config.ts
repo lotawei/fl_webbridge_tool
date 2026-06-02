@@ -8,6 +8,7 @@ export default defineConfig({
   server: {
     host: '0.0.0.0',
     port: 5173,
+    cors: true,
   },
   // 构建用于 Flutter asset 的打包
   build: {
