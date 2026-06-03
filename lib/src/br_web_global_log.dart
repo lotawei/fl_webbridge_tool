@@ -21,6 +21,9 @@ class BRWebGlobalLog {
 
   static final BRWebGlobalLog instance = BRWebGlobalLog._();
 
+  /// 最大保留条数，超出后自动移除旧条目（默认 2000）
+  int maxCapacity = 2000;
+
   final List<BRWebLogEntry> _entries = <BRWebLogEntry>[];
   final List<void Function(BRWebLogEntry)> _listeners =
       <void Function(BRWebLogEntry)>[];
@@ -39,6 +42,10 @@ class BRWebGlobalLog {
 
   void log(BRWebLogEntry entry) {
     _entries.add(entry);
+    // 超出上限时移除最旧的条目
+    while (_entries.length > maxCapacity) {
+      _entries.removeAt(0);
+    }
     // 延迟到下一微任务派发 listener，避免 build 阶段 setState 崩溃
     for (final listener in _listeners) {
       scheduleMicrotask(() => listener(entry));

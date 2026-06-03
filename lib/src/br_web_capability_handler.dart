@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -55,11 +56,13 @@ class DefaultBRWebCapabilityHandler implements BRWebCapabilityHandler {
     return switch (message.action) {
       'device.camera.takePhoto' => _takePhoto(context, message),
       'device.camera.pickPhoto' => _pickPhoto(context, message),
+      'device.camera.pickMultiPhoto' => _pickMultiPhoto(context, message),
       'device.camera.takeVideo' => _takeVideo(context, message),
       'device.camera.pickVideo' => _pickVideo(context, message),
       'device.file.pick' => _pickFile(message),
       'device.file.preview' => _previewFile(context, message),
       'device.file.delete' => _deleteFile(message),
+      'device.file.readAsDataUrl' => _readAsDataUrl(message),
       'device.network.status' => _getNetworkStatus(),
       'device.system.info' => _getSystemInfo(),
       'device.audio.startRecord' => _startRecord(context, message),
@@ -87,7 +90,12 @@ class DefaultBRWebCapabilityHandler implements BRWebCapabilityHandler {
   Future<Object?> _takePhoto(BuildContext ctx, BRWebBridgeMessage msg) async {
     if (!await BRWebPermissionHelper.ensurePermission(permission: Permission.camera, context: ctx, permissionName: '相机', purpose: '拍照'))
       return {'cancelled': true, 'reason': 'permission_denied'};
-    final img = await _pickWithMaxSize(source: ImageSource.camera, maxSizeKB: (msg.params['maxSizeKB'] as num?)?.toInt() ?? 1024, maxWidth: (msg.params['maxWidth'] as num?)?.toDouble(), maxHeight: (msg.params['maxHeight'] as num?)?.toDouble());
+    final img = await _imagePicker.pickImage(
+      source: ImageSource.camera,
+      imageQuality: (msg.params['quality'] as num?)?.toInt() ?? 85,
+      maxWidth: (msg.params['maxWidth'] as num?)?.toDouble() ?? 1600,
+      maxHeight: (msg.params['maxHeight'] as num?)?.toDouble(),
+    );
     if (img == null) return {'cancelled': true};
     final bytes = await File(img.path).length();
     final save = msg.params['saveToGallery'] as bool? ?? true;
@@ -98,19 +106,32 @@ class DefaultBRWebCapabilityHandler implements BRWebCapabilityHandler {
   Future<Object?> _pickPhoto(BuildContext ctx, BRWebBridgeMessage msg) async {
     if (!await BRWebPermissionHelper.ensurePermission(permission: Permission.photos, context: ctx, permissionName: '相册', purpose: '选择照片'))
       return {'cancelled': true, 'reason': 'permission_denied'};
-    final img = await _pickWithMaxSize(source: ImageSource.gallery, maxSizeKB: (msg.params['maxSizeKB'] as num?)?.toInt() ?? 1024);
+    final img = await _imagePicker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: (msg.params['quality'] as num?)?.toInt() ?? 85,
+      maxWidth: (msg.params['maxWidth'] as num?)?.toDouble(),
+      maxHeight: (msg.params['maxHeight'] as num?)?.toDouble(),
+    );
     if (img == null) return {'cancelled': true};
     final bytes = await File(img.path).length();
     return {'cancelled': false, 'path': img.path, 'name': img.name, 'mimeType': img.mimeType, 'size': bytes, 'sizeKB': bytes ~/ 1024};
   }
 
-  Future<XFile?> _pickWithMaxSize({required ImageSource source, required int maxSizeKB, double? maxWidth, double? maxHeight}) async {
-    for (final q in [85, 60, 40, 20, 10]) {
-      final img = await _imagePicker.pickImage(source: source, imageQuality: q, maxWidth: maxWidth, maxHeight: maxHeight);
-      if (img == null) return null;
-      if (await File(img.path).length() ~/ 1024 <= maxSizeKB || q == 10) return img;
+  Future<Object?> _pickMultiPhoto(BuildContext ctx, BRWebBridgeMessage msg) async {
+    if (!await BRWebPermissionHelper.ensurePermission(permission: Permission.photos, context: ctx, permissionName: '相册', purpose: '选择多张照片'))
+      return {'cancelled': true, 'reason': 'permission_denied'};
+    final images = await _imagePicker.pickMultiImage(
+      imageQuality: (msg.params['quality'] as num?)?.toInt() ?? 85,
+      maxWidth: (msg.params['maxWidth'] as num?)?.toDouble(),
+      maxHeight: (msg.params['maxHeight'] as num?)?.toDouble(),
+    );
+    if (images.isEmpty) return {'cancelled': true, 'files': <Object>[]};
+    final files = <Map<String, dynamic>>[];
+    for (final img in images) {
+      final bytes = await File(img.path).length();
+      files.add({'path': img.path, 'name': img.name, 'mimeType': img.mimeType, 'size': bytes, 'sizeKB': bytes ~/ 1024});
     }
-    return null;
+    return {'cancelled': false, 'files': files};
   }
 
   Future<Object?> _takeVideo(BuildContext ctx, BRWebBridgeMessage msg) async {
@@ -156,6 +177,42 @@ class DefaultBRWebCapabilityHandler implements BRWebCapabilityHandler {
     try { await f.delete(); return {'deleted': true}; } catch (e) { return {'deleted': false, 'reason': e.toString()}; }
   }
 
+  Future<Object?> _readAsDataUrl(BRWebBridgeMessage msg) async {
+    final path = msg.params['path'] as String?;
+    if (path == null) throw ArgumentError('path required');
+    final f = File(path);
+    if (!f.existsSync()) throw StateError('File not found: $path');
+    final bytes = await f.readAsBytes();
+    
+    // 从扩展名推断 MIME
+    final ext = path.split('.').last.toLowerCase();
+    String mime = 'application/octet-stream';
+    if (['jpg', 'jpeg'].contains(ext)) mime = 'image/jpeg';
+    else if (ext == 'png') mime = 'image/png';
+    else if (ext == 'gif') mime = 'image/gif';
+    else if (ext == 'webp') mime = 'image/webp';
+    else if (ext == 'bmp') mime = 'image/bmp';
+    else if (ext == 'svg') mime = 'image/svg+xml';
+    else if (ext == 'mp4') mime = 'video/mp4';
+    else if (ext == 'mov') mime = 'video/quicktime';
+    else if (ext == 'mp3') mime = 'audio/mpeg';
+    else if (ext == 'm4a') mime = 'audio/mp4';
+    else if (ext == 'wav') mime = 'audio/wav';
+
+    // 限制图片类最大 5MB，超过不转
+    if (mime.startsWith('image/') && bytes.length > 5 * 1024 * 1024) {
+      return {'dataUrl': null, 'mimeType': mime, 'size': bytes.length, 'error': 'image too large (>5MB)'};
+    }
+
+    final b64 = base64Encode(bytes);
+    return {
+      'dataUrl': 'data:$mime;base64,$b64',
+      'mimeType': mime,
+      'size': bytes.length,
+      'name': path.split('/').last,
+    };
+  }
+
   Future<Object?> _startRecord(BuildContext ctx, BRWebBridgeMessage msg) async {
     if (!await BRWebPermissionHelper.ensurePermission(permission: Permission.microphone, context: ctx, permissionName: '麦克风', purpose: '录音'))
       return {'cancelled': true, 'reason': 'permission_denied'};
@@ -164,7 +221,13 @@ class DefaultBRWebCapabilityHandler implements BRWebCapabilityHandler {
     await _recorder.start(const RecordConfig(encoder: AudioEncoder.aacLc), path: _recordingPath!);
     return {'recording': true, 'path': _recordingPath};
   }
-  Future<Object?> _stopRecord() async { final p = await _recorder.stop(); return {'recording': false, 'path': p ?? _recordingPath}; }
+  Future<Object?> _stopRecord() async {
+    final p = await _recorder.stop();
+    final path = p ?? _recordingPath;
+    final bytes = path != null ? await File(path).length() : 0;
+    final name = path?.split('/').last ?? 'recording.m4a';
+    return {'recording': false, 'path': path, 'name': name, 'mimeType': 'audio/mp4', 'size': bytes, 'sizeKB': bytes ~/ 1024};
+  }
 
   Future<Object?> _getNetworkStatus() async {
     if (_networkMonitor == null) return {'status': 'unknown'};

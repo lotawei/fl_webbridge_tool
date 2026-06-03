@@ -1,5 +1,6 @@
 import 'package:fl_webbridge_tool/fl_webbridge_tool.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 
 late final BRWebResourceManager resourceManager;
@@ -56,23 +57,42 @@ class _DemoAppState extends State<DemoApp> {
     _handler.onSetTitle = (t) => _logger.native('setTitle', detail: t);
     _handler.onUiRequest = (action, params) {
       _logger.uiRequest(action, params);
-      if (action == 'hideTabBar') setState(() => _tabBarVisible = false);
-      if (action == 'showTabBar') setState(() => _tabBarVisible = true);
+      if (action == 'hideTabBar') {
+        _tabBarVisible = false;
+        _safeSetState();
+      }
+      if (action == 'showTabBar') {
+        _tabBarVisible = true;
+        _safeSetState();
+      }
     };
 
     _logger.native('App started', detail: 'resource=${resourceManager.activeVersion}');
   }
 
   void _appendLog(String message) {
+    if (!mounted) return;
     final t = '${DateTime.now().hour.toString().padLeft(2, '0')}:${DateTime.now().minute.toString().padLeft(2, '0')}:${DateTime.now().second.toString().padLeft(2, '0')}';
     _logs.insert(0, '$t  $message');
     if (_logs.length > 200) _logs.removeLast();
-    if (mounted) setState(() {});
+    _safeSetState();
   }
 
   void _clearLogs() {
     _logs.clear();
-    if (mounted) setState(() {});
+    _safeSetState();
+  }
+
+  void _safeSetState() {
+    if (!mounted) return;
+    if (SchedulerBinding.instance.schedulerPhase == SchedulerPhase.persistentCallbacks) {
+      // 正在 build/layout/paint，延迟到下一帧
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(() {});
+      });
+      return;
+    }
+    setState(() {});
   }
 
   @override
@@ -138,6 +158,9 @@ class _DemoAppState extends State<DemoApp> {
                   title: 'Vue3 演示 (dev)',
                   capabilityHandler: BRWebDevGuard(inner: _handler, logger: _logger),
                   logger: _logger,
+                  initialData: BRWebInitialData(
+                    accessToken: 'demo_token', userData: {'id': '1001', 'name': '张三'}, lang: 'zh',
+                  ),
                 ),
               ),
             );

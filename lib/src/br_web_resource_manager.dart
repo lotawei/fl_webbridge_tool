@@ -72,7 +72,7 @@ class BRWebResourceManager {
       ? _versions[_activeVersion]?.path : null;
   bool get isDownloading => _isDownloading;
   double get downloadProgress => _downloadProgress;
-  List<String> get installedVersions => _versions.keys.toList();
+  List<String> get installedVersions => _versions.keys.toList()..sort();
 
   /// 初始化：扫描已安装版本 + 如果没有任何版本，把 bundled dist 拷贝一份作为 v1.0.0
   Future<void> init() async {
@@ -216,12 +216,18 @@ class BRWebResourceManager {
       if (!file.existsSync()) { _activeVersion = 'builtin'; return; }
       final json = jsonDecode(await file.readAsString()) as Map<String, dynamic>;
       _activeVersion = json['active'] as String?;
+      final seenPaths = <String>{};
       for (final v in (json['versions'] as List<dynamic>? ?? [])) {
-        final rv = ResourceVersion(
-          version: v['version'] as String, path: v['path'] as String,
+        final version = v['version'] as String;
+        final path = v['path'] as String;
+        // 去重：同路径只保留第一次出现的版本
+        if (seenPaths.contains(path)) continue;
+        seenPaths.add(path);
+        _versions[version] = ResourceVersion(
+          version: version,
+          path: path,
           installedAt: v['installedAt'] != null ? DateTime.parse(v['installedAt'] as String) : null,
         );
-        _versions[rv.version] = rv;
       }
     } catch (_) { _activeVersion = 'builtin'; }
   }
