@@ -20,10 +20,12 @@ dependencies:
   package_info_plus: ^8.2.0
   path_provider: ^2.1.5 
   permission_handler: ^12.0.1 #权限获取
-  plugin_platform_interface: ^2.1.8  
-  record: ^6.2.0   #录音的
+  plugin_platform_interface: ^2.1.8
+  record: ^6.2.0
+  sqflite: ^2.4.1
   video_player: ^2.9.2
-
+  database: ^0.4.0
+  path: ^1.9.1
 dev_dependencies:
   flutter_lints: ^6.0.0
   flutter_test:

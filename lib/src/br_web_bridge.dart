@@ -34,9 +34,10 @@ class BRWebBridge {
           final response = message.ok(data);
           logger?.bridgeResponse(message.id, response);
           return response;
-        } catch (error) {
+        } catch (error, stack) {
           final response = message.fail(error);
           logger?.bridgeResponse(message.id, response);
+          logger?.bridgeError(message.action, error, stack);
           return response;
         }
       },

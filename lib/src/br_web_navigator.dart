@@ -63,7 +63,7 @@ class BRWebNavigator {
   }) {
     final webConfig = _routes[routeName];
     if (webConfig != null) {
-      return Navigator.of(context).push(
+      return Navigator.of(context, rootNavigator: true).push(
         MaterialPageRoute<T>(
           settings: RouteSettings(name: routeName),
           builder: (_) => BRWebContainerPage(
@@ -80,7 +80,7 @@ class BRWebNavigator {
 
     final nativeBuilder = _nativeRoutes[routeName];
     if (nativeBuilder != null) {
-      return Navigator.of(context).push(
+      return Navigator.of(context, rootNavigator: true).push(
         MaterialPageRoute<T>(
           settings: RouteSettings(name: routeName),
           builder: (_) => nativeBuilder(context, params),

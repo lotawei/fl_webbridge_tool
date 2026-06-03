@@ -56,6 +56,7 @@ typedef BRWebLogCallback = void Function(BRWebLogEntry entry);
 abstract interface class BRWebLogger {
   void bridgeRequest(BRWebBridgeMessage message);
   void bridgeResponse(String id, Object? response);
+  void bridgeError(String action, Object error, StackTrace stack);
   void lifecycle(BRWebLifecycleEvent event);
   void console(String message);
   void jsError(String message, String? url, int? line);
@@ -94,6 +95,23 @@ class CallbackBRWebLogger implements BRWebLogger {
       timestamp: DateTime.now(),
       message: id,
       detail: response.toString(),
+    ));
+  }
+
+  @override
+  void bridgeError(String action, Object error, StackTrace stack) {
+    final lines = stack.toString().split('\n');
+    // 取前 3 行关键堆栈（跳过 Flutter/Bridge 框架层）
+    final top = lines
+        .where((l) => l.contains('br_web_') || l.contains('fl_webbridge'))
+        .take(3)
+        .join(' ← ');
+    _log(BRWebLogEntry(
+      type: BRWebLogType.bridgeError,
+      timestamp: DateTime.now(),
+      action: action,
+      message: '$error',
+      detail: top.isNotEmpty ? top : lines.take(2).join(' ← '),
     ));
   }
 

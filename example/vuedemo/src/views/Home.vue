@@ -148,16 +148,7 @@ async function requestWebScreenCapture() {
 
 <template>
   <div class="app">
-    <header>
-      <h1>BR_Web 首页</h1>
-      <p class="user-info" v-if="isLoggedIn">👤 {{ userName }} &nbsp;|&nbsp; 🌐 {{ lang }}</p>
-    </header>
 
-    <nav class="tabs">
-      <router-link to="/" class="tab" exact-active-class="active">🏠 主页</router-link>
-      <router-link to="/nav" class="tab" active-class="active">🧭 导航</router-link>
-      <router-link to="/profile" class="tab" active-class="active">👤 我的</router-link>
-    </nav>
 
     <main>
       <!-- Bridge API（主线，所有平台可用） -->

@@ -31,8 +31,7 @@ class BRWebContainerPage extends StatefulWidget {
   const BRWebContainerPage({
     super.key,
     this.url,
-    this.initialUrl,
-    this.initialFile,
+    this.initialFile,     // asset 路径 或 绝对文件系统路径（如 /data/.../index.html）
     this.title,
     this.initialData,
     this.capabilityHandler,
@@ -43,18 +42,12 @@ class BRWebContainerPage extends StatefulWidget {
     this.onTitleRequest,
     this.showAppBar = true,
     this.pullToRefreshEnabled = false,
-  }) : assert(
-         url != null || initialUrl != null || initialFile != null,
-         'url, initialUrl or initialFile is required.',
-       );
+  }) : assert(url != null || initialFile != null, 'url or initialFile is required.');
 
-  /// H5 页面 URL（推荐使用，与 [initialUrl] 等效）
+  /// H5 页面 URL（HTTP/HTTPS 或 file://）
   final String? url;
 
-  /// 初始 URL（向后兼容）
-  final String? initialUrl;
-
-  /// 本地 asset 路径
+  /// 本地文件路径 — asset 路径或绝对文件系统路径（如 /data/.../index.html）
   final String? initialFile;
 
   /// 页面标题（H5 可通过 bridge `navigation.setTitle` 覆盖）
@@ -193,7 +186,7 @@ class _BRWebContainerPageState extends State<BRWebContainerPage>
   }
 
   /// 有效的 URL
-  String? get _effectiveUrl => widget.url ?? widget.initialUrl;
+  String? get _effectiveUrl => widget.url;
 
   @override
   void dispose() {
@@ -209,11 +202,14 @@ class _BRWebContainerPageState extends State<BRWebContainerPage>
 
   @override
   Widget build(BuildContext context) {
+    final isAbsPath = widget.initialFile != null && widget.initialFile!.startsWith('/');
     final webView = InAppWebView(
-      initialUrlRequest: _effectiveUrl == null
-          ? null
-          : URLRequest(url: WebUri(_effectiveUrl!)),
-      initialFile: widget.initialFile,
+      initialUrlRequest: _effectiveUrl != null
+          ? URLRequest(url: WebUri(_effectiveUrl!))
+          : isAbsPath
+              ? URLRequest(url: WebUri('file://${widget.initialFile}'))
+              : null,
+      initialFile: isAbsPath ? null : widget.initialFile,
       initialUserScripts: _buildUserScripts(),
       initialSettings: InAppWebViewSettings(
         javaScriptEnabled: true,
@@ -221,6 +217,8 @@ class _BRWebContainerPageState extends State<BRWebContainerPage>
         geolocationEnabled: true,
         mediaPlaybackRequiresUserGesture: false,
         allowsInlineMediaPlayback: true,
+        allowFileAccessFromFileURLs: true,
+        allowUniversalAccessFromFileURLs: true,
         transparentBackground: false,
         useShouldOverrideUrlLoading: true,
         useOnDownloadStart: true,

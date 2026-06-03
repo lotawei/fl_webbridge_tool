@@ -35,24 +35,15 @@ async function go(route: string) { appendLog(await call('navigation.navigateTo',
 <template>
   <TwentyFirstToolbar :config="toolbarConfig" />
   <div class="app">
-    <header class="header">
-      <h1>BR_Web Vue3 容器</h1>
-      <p class="user-info" v-if="isInWebView">
-        <template v-if="isLoggedIn">
-          👤 {{ userName }} &nbsp;|&nbsp; 🌐 {{ lang }} &nbsp;|&nbsp; 🟢 bridge ready
-        </template>
-        <template v-else>
-          ⚡ WebView 模式 &nbsp;|&nbsp; 等待注入数据...
-        </template>
-      </p>
-      <p class="user-info" v-else>🖥️ 浏览器模式（mock）</p>
-    </header>
+ 
 
     <!-- Tab 导航 -->
     <nav class="tabs">
       <router-link to="/" class="tab" exact-active-class="active">🏠 主页</router-link>
       <router-link to="/nav" class="tab" active-class="active">🧭 导航</router-link>
       <router-link to="/profile" class="tab" active-class="active">👤 我的</router-link>
+      <router-link to="/orders" class="tab" active-class="active">📋 工单</router-link>
+      <router-link to="/resource" class="tab" active-class="active">🌐 Vue3</router-link>
     </nav>
 
     <main>
