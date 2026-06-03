@@ -464,3 +464,103 @@ class _BRWebPreviewPageState extends State<BRWebPreviewPage> {
     return '$min:$sec';
   }
 }
+
+/// 多文件预览条目
+class BRWebPreviewFileItem {
+  const BRWebPreviewFileItem({
+    required this.path,
+    this.type,
+    this.title,
+    this.mimeType,
+    this.size,
+  });
+
+  final String path;
+  final String? type;
+  final String? title;
+  final String? mimeType;
+  final int? size;
+
+  factory BRWebPreviewFileItem.fromJson(Map<String, dynamic> json) =>
+      BRWebPreviewFileItem(
+        path: json['path'] as String,
+        type: json['type'] as String?,
+        title: json['title'] as String?,
+        mimeType: json['mimeType'] as String?,
+        size: json['size'] as int?,
+      );
+}
+
+/// 多文件全屏预览——支持左右滑动切换
+class BRWebPreviewMultiPage extends StatefulWidget {
+  const BRWebPreviewMultiPage({
+    super.key,
+    required this.files,
+    this.initialIndex = 0,
+  });
+
+  final List<BRWebPreviewFileItem> files;
+  final int initialIndex;
+
+  @override
+  State<BRWebPreviewMultiPage> createState() => _BRWebPreviewMultiPageState();
+}
+
+class _BRWebPreviewMultiPageState extends State<BRWebPreviewMultiPage> {
+  late final PageController _pageController;
+  late int _currentIndex;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentIndex = widget.initialIndex;
+    _pageController = PageController(initialPage: _currentIndex);
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final total = widget.files.length;
+    final current = widget.files[_currentIndex];
+    final displayTitle = current.title ??
+        current.path.split('/').last;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(total > 1
+            ? '$displayTitle  (${_currentIndex + 1}/$total)'
+            : displayTitle),
+      ),
+      backgroundColor: Colors.black,
+      body: PageView.builder(
+        controller: _pageController,
+        itemCount: total,
+        onPageChanged: (i) => setState(() => _currentIndex = i),
+        itemBuilder: (_, i) {
+          final file = widget.files[i];
+          return BRWebPreviewPage(
+            filePath: file.path,
+            fileType: file.type != null
+                ? _parseType(file.type!)
+                : inferFileType(file.path, file.mimeType),
+            title: file.title,
+            mimeType: file.mimeType,
+            fileSize: file.size,
+          );
+        },
+      ),
+    );
+  }
+
+  BRWebFileType? _parseType(String t) => switch (t) {
+    'image' => BRWebFileType.image,
+    'video' => BRWebFileType.video,
+    'audio' => BRWebFileType.audio,
+    _ => null,
+  };
+}

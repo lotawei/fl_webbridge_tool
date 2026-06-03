@@ -8,6 +8,28 @@ const isLoggedIn = computed(() => !!brData.value.accessToken)
 const userName = computed(() => (brData.value.user as any)?.name ?? '')
 const lang = computed(() => (brData.value.lang as string) || 'zh-CN')
 
+// 收集的待预览文件
+type PickedFile = { path: string; type: string; title?: string; mimeType?: string; size?: number }
+const pickedFiles = ref<PickedFile[]>([])
+
+function collectFile(data: any, defaultType: string) {
+  const file: PickedFile = {
+    path: data.path,
+    type: inferType(data) || defaultType,
+    title: data.name || undefined,
+    mimeType: data.mimeType || undefined,
+    size: data.size || undefined,
+  }
+  // 去重：同路径只保留一个
+  const dup = pickedFiles.value.find(f => f.path === file.path)
+  if (!dup) pickedFiles.value = [...pickedFiles.value, file]
+}
+
+async function previewAll() {
+  if (pickedFiles.value.length === 0) return
+  await call('device.file.previewMulti', { files: pickedFiles.value, index: 0 })
+}
+
 // ====== 文件画廊（Vue 端自建预览） ======
 interface GalleryItem {
   path: string; name: string; type: 'image' | 'video' | 'audio' | 'file'
@@ -251,6 +273,17 @@ async function requestWebScreenCapture() {
         <button class="viewer-del" @click.stop="removeFile(viewingIndex); if (gallery.length === 0) viewingIndex = -1">🗑️</button>
       </div>
       <img v-if="gallery[viewingIndex]?.dataUrl" :src="gallery[viewingIndex].dataUrl!" class="viewer-img" @click.stop />
+      <div v-else class="viewer-placeholder">
+        <span class="viewer-icon">
+          <span v-if="gallery[viewingIndex]?.type === 'video'">🎬</span>
+          <span v-else-if="gallery[viewingIndex]?.type === 'audio'">🎵</span>
+          <span v-else>📄</span>
+        </span>
+        <div class="viewer-name">{{ gallery[viewingIndex]?.name }}</div>
+        <button class="viewer-native-btn" @click.stop="openNativePreview(gallery[viewingIndex])">
+          用原生预览打开
+        </button>
+      </div>
       <div class="viewer-actions">
         <button class="viewer-prev" @click.stop="viewingIndex > 0 ? viewingIndex-- : viewingIndex = gallery.length - 1">◀</button>
         <button class="viewer-next" @click.stop="viewingIndex < gallery.length - 1 ? viewingIndex++ : viewingIndex = 0">▶</button>
@@ -292,4 +325,8 @@ pre.log { margin-top: 14px; padding: 12px; min-height: 120px; max-height: 200px;
 .viewer-img { max-width: 95vw; max-height: 75vh; object-fit: contain; border-radius: 4px; }
 .viewer-actions { position: absolute; bottom: 24px; display: flex; gap: 48px; }
 .viewer-prev, .viewer-next { width: 52px; height: 52px; border-radius: 50%; background: rgba(255,255,255,0.15); color: white; font-size: 22px; border: none; margin: 0; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.viewer-placeholder { display: flex; flex-direction: column; align-items: center; gap: 16px; }
+.viewer-icon { font-size: 64px; }
+.viewer-name { color: white; font-size: 14px; max-width: 80vw; text-align: center; word-break: break-all; }
+.viewer-native-btn { width: auto; height: 40px; padding: 0 24px; background: #2563eb; color: white; border-radius: 8px; font-size: 15px; }
 </style>

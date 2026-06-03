@@ -12,7 +12,7 @@ import 'br_web_database_manager.dart';
 import 'br_web_navigator.dart';
 import 'br_web_network_monitor.dart';
 import 'br_web_permission_helper.dart';
-import 'br_web_preview_page.dart' show BRWebFileType, BRWebPreviewPage, inferFileType;
+import 'br_web_preview_page.dart' show BRWebFileType, BRWebPreviewFileItem, BRWebPreviewMultiPage, BRWebPreviewPage, inferFileType;
 import 'br_web_resource_manager.dart';
 import 'br_web_system_info.dart';
 
@@ -61,6 +61,7 @@ class DefaultBRWebCapabilityHandler implements BRWebCapabilityHandler {
       'device.camera.pickVideo' => _pickVideo(context, message),
       'device.file.pick' => _pickFile(message),
       'device.file.preview' => _previewFile(context, message),
+      'device.file.previewMulti' => _previewMultiFile(context, message),
       'device.file.delete' => _deleteFile(message),
       'device.file.readAsDataUrl' => _readAsDataUrl(message),
       'device.network.status' => _getNetworkStatus(),
@@ -168,6 +169,22 @@ class DefaultBRWebCapabilityHandler implements BRWebCapabilityHandler {
     final fileType = typeRaw != null ? switch (typeRaw) { 'image' => BRWebFileType.image, 'video' => BRWebFileType.video, 'audio' => BRWebFileType.audio, _ => inferFileType(path, msg.params['mimeType'] as String?) } : inferFileType(path, msg.params['mimeType'] as String?);
     if (!ctx.mounted) return {'cancelled': true};
     await Navigator.of(ctx).push(MaterialPageRoute(builder: (_) => BRWebPreviewPage(filePath: path, fileType: fileType, title: msg.params['title'] as String?, mimeType: msg.params['mimeType'] as String?, fileSize: msg.params['size'] as int?)));
+    return {'closed': true};
+  }
+
+  Future<Object?> _previewMultiFile(BuildContext ctx, BRWebBridgeMessage msg) async {
+    final filesRaw = msg.params['files'] as List<dynamic>?;
+    if (filesRaw == null || filesRaw.isEmpty) throw ArgumentError('files array required');
+    final files = filesRaw
+        .map((f) => BRWebPreviewFileItem.fromJson(f as Map<String, dynamic>))
+        .toList();
+    if (!ctx.mounted) return {'cancelled': true};
+    await Navigator.of(ctx).push(MaterialPageRoute(
+      builder: (_) => BRWebPreviewMultiPage(
+        files: files,
+        initialIndex: (msg.params['index'] as num?)?.toInt() ?? 0,
+      ),
+    ));
     return {'closed': true};
   }
 
