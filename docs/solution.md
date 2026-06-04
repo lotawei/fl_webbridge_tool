@@ -32,8 +32,9 @@
 
 | Action | 说明 | 权限 | 关键参数 |
 |--------|------|------|---------|
-| `device.camera.takePhoto` | 拍照 + 自动压缩 + 默认存相册 | `CAMERA` | `maxSizeKB`(默认1024), `maxWidth`, `maxHeight`, `saveToGallery`(默认true) |
+| `device.camera.takePhoto` | 拍照 + 自动压缩 + 默认存相册 | `CAMERA` | `maxSizeKB`(默认1024), `maxWidth`(默认1600), `maxHeight`, `saveToGallery`(默认true) |
 | `device.camera.pickPhoto` | 从相册选照片 + 自动压缩 | `PHOTOS` | `maxSizeKB`(默认1024) |
+| `device.camera.pickMultiPhoto` | **多选照片** | `PHOTOS` | `quality`, `maxWidth` → `{files: [{path, name, mimeType, size}]}` |
 | `device.camera.takeVideo` | 录像 + 默认存相册 | `CAMERA` + `MICROPHONE` | `maxDuration`(秒,默认30), `camera`(front/rear), `saveToGallery` |
 | `device.camera.pickVideo` | 从相册选视频 | `PHOTOS` | `maxDuration`(秒,默认600) |
 | `device.file.pick` | 文件选择（单/多） | - | `multiple` |
@@ -139,16 +140,19 @@ BRWebContainerPage(
 - H5 调了未绑定的 action → 立即打印 `⚠️ BR_WEB_DEVMODE` 警告
 - 启动时 `runStartupChecks()` 全量扫描
 
-### 文件预览（BRWebPreviewPage）
+### 文件预览（BRWebPreviewPage / BRWebPreviewMultiPage）
 
-| 类型 | 特性 |
-|------|------|
-| 图片 | `InteractiveViewer` 缩放（1x~5x），格式：jpg/png/gif/webp/heic |
-| 视频 | `video_player` 播放控制，进度条可拖拽，重播按钮 |
-| 音频 | `audioplayers` 圆盘播放器，拖动进度条，播放/暂停 |
-| 未知 | 友好提示"不支持预览此文件类型" |
+| 类型 | 组件 | 特性 |
+|------|------|------|
+| 图片 | `InteractiveViewer` | 双指缩放 1x~5x，jpg/png/gif/webp/heic |
+| 视频 | `VideoPlayer` | 播放/暂停/拖动进度条/重播 |
+| 音频 | `AudioPlayer` | 圆盘播放器，进度条可拖拽 |
+| 多文件 | `BRWebPreviewMultiPage` | PageView 左右滑动，标题栏 "文件名 (2/5)" |
+| 未知 | 友好提示 | "不支持预览此文件类型" |
 
 支持扩展名自动推断 >30 种文件类型。
+
+> Bridge action `device.file.previewMulti` 接收 `{files: [{path, type, title}], index}`，`device.audio.stopRecord` 返回结构已统一（含 mimeType/name/size）。
 
 ### 网络 & 系统信息
 
@@ -159,39 +163,55 @@ BRWebContainerPage(
 
 ## 通信协议
 
-```
-H5 → Flutter:
-  window.flutter_inappwebview.callHandler('BR_WebNativeBridge', {
-    id: "req_001",
-    action: "device.camera.takePhoto",
-    params: { quality: 80, saveToGallery: true }
-  })
+**统一消息模型**（H5 ↔ Native 双向一致，唯一格式）：
 
-Flutter → H5:
-  BRWebBridge.callWeb('container.lifecycle', { type: 'loadStop', url: '...' })
 ```
+请求消息:
+{
+  "id": "req_001",            // 唯一请求 ID（自动生成）
+  "action": "device.camera.takePhoto",
+  "params": { quality: 80 },
+  "meta": {                    // 元信息（H5 自动注入，Native 可选）
+    "h5Version": "2.0.1",
+    "h5Branch": "master",
+    "platform": "ios",
+    "appVersion": "1.0.0",
+    "lang": "zh"
+  }
+}
 
-响应格式：
-```json
+响应消息:
 // 成功
-{ "id": "req_001", "ok": true, "data": { "path": "/tmp/photo.jpg", "sizeKB": 156 } }
+{ "id": "req_001", "ok": true, "data": { "path": "/tmp/photo.jpg" } }
 
 // 失败
 { "id": "req_001", "ok": false, "error": "Bad state: db not configured" }
 ```
 
+| 方向 | 传输方式 | 格式 |
+|------|---------|------|
+| H5 → Native | `callHandler('BR_WebNativeBridge', msg)` | `{id, action, params, meta}` |
+| Native → H5 | `BRWebBridge.callWeb(action, params)` | `{id, action, params}` |
+| H5 响应 Native | `onNativeCall` 回调返回值 | `{id, ok, data/error}` |
+| Native 响应 H5 | handler 返回值 / throw | `{id, ok, data/error}` |
+
+> H5 端 `setBridgeMeta({...})` 可追加自定义 meta（如 userId/role），后续所有请求自动携带。
 > 错误统一走 `throw` → bridge catch → `{ok: false, error: ...}`，**不在 data 中嵌套 error**。
 
 ## Bridge 数据流
 
 ```
-┌──────┐   callHandler()    ┌──────────────┐   addJavaScriptHandler   ┌──────┐
-│  H5  │ ──────────────────▶│ flutter_     │─────────────────────────▶│ Dart │
-│ Vue3 │                    │ inappwebview │                          │      │
-│      │◀───────────────────│              │◀─────────────────────────│      │
-└──────┘   evaluateJavascript│              │   return JSON             └──────┘
-           (BRWebBridge       └──────────────┘
-            .callWeb())
+           callHandler({id,action,params,meta})
+  ┌──────┐ ────────────────────────────▶ ┌──────┐
+  │  H5  │                                │Dart  │
+  │ Vue3 │ ◀──────────────────────────── │      │
+  └──────┘   return {id,ok,data/error}    └──────┘
+       ▲                                    │
+       │  onNativeCall({id,action,params})  │
+       │  return {id,ok,data}               │
+       └────────────────────────────────────┘
+              evaluateJavascript
+              (BRWebBridge.callWeb)
 ```
 
 ## 权限配置
@@ -228,6 +248,9 @@ Flutter → H5:
 | SPA history 监听 | 不只依赖 `onLoadStop`，监听 `onUpdateVisitedHistory` |
 | 日志采样 | 避免 console 和 bridge 高频刷屏 |
 | ⚠️ handler 注入 | 每个 `BRWebContainerPage` 必须传入 `capabilityHandler`，否则默认新实例无 manager |
+| 🧹 日志 OOM 防护 | `BRWebGlobalLog.maxCapacity = 2000`，超出自动 removeAt(0)；示例 `_logs` 限制 200 条 |
+| 🔒 安全 setState | `_safeSetState()` 检测 `schedulerPhase`，build 阶段自动推迟到 `addPostFrameCallback` |
+| 📦 资源去重 | `installedVersions` 自动排序；`_loadManifest` 按路径去重 |
 
 ## 构建方式
 
@@ -240,9 +263,14 @@ Flutter → H5:
 ## 后续增强路线
 
 - [x] 资源包版本管理 + 增量更新（Mock 流程已就绪）
-- [x] 数据库 CRUD 通用框架 + 工单示例
-- [x] 全局日志集线器 + 工业级日志 UI
-- [x] Bridge 异常自动栈追踪
+- [x] 数据库 CRUD 通用框架 + 工单示例         
+- [x] 全局日志集线器 + 工业级日志 UI + OOM 防护
+- [x] Bridge 异常自动栈追踪 + 安全 setState
+- [x] 多文件翻页预览（BRWebPreviewMultiPage）
+- [x] 多图选择（pickMultiPhoto）+ 音频返回格式统一
+- [x] 图片选择器死循环修复 + 资源去重
+- [x] Vue 端文件画廊 + 全屏查看器（支持图片/视频/音频）
+- [x] 通信模型统一（meta + id/action/params 双向一致 + H5 响应回传）
 - [ ] BR_Web Vue NPM 包独立发布
 - [ ] 生产环境资源包 OTA（替换 Mock download）
 - [ ] Cookie/Token 注入和 SSO

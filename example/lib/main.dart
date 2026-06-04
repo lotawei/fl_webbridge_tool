@@ -53,7 +53,6 @@ class _DemoAppState extends State<DemoApp> {
     _handler.networkMonitor = monitor;
     _handler.resourceManager = resourceManager;
     _handler.workOrderManager = workOrderManager;
-
     _handler.onSetTitle = (t) => _logger.native('setTitle', detail: t);
     _handler.onUiRequest = (action, params) {
       _logger.uiRequest(action, params);
@@ -114,7 +113,10 @@ class _DemoAppState extends State<DemoApp> {
               capabilityHandler: BRWebDevGuard(inner: _handler, logger: _logger),
               initialData: BRWebInitialData(
                 accessToken: 'demo_token', userData: {'id': '1001', 'name': '张三'}, lang: 'zh',
-                extra: {'resourceVersion': resourceManager.activeVersion},
+                extra: {
+                  'resourceVersion': resourceManager.activeVersion,
+                  'appVersion': DefaultBRWebCapabilityHandler.systemInfo?.appVersion ?? 'unknown',
+                },
               ),
             ),
             LogPage(logs: _logs, onClear: _clearLogs),
@@ -286,6 +288,66 @@ class _LogPageState extends State<LogPage> {
     if (ok == true) widget.onClear?.call();
   }
 
+  static const _kMaxLines = 3;
+
+  Widget _buildLogItem(String text) {
+    final isLong = text.length > 200 || '\n'.allMatches(text).length >= _kMaxLines;
+    return InkWell(
+      onLongPress: () => _copyOne(text),
+      onTap: isLong ? () => _showDetail(text) : null,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 2),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          decoration: BoxDecoration(
+            color: Colors.grey.shade100,
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Text(
+            text,
+            maxLines: _kMaxLines,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 11, fontFamily: 'monospace'),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showDetail(String text) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Row(
+          children: [
+            const Text('日志详情', style: TextStyle(fontSize: 16)),
+            const Spacer(),
+            IconButton(
+              icon: const Icon(Icons.copy, size: 20),
+              tooltip: '复制',
+              onPressed: () {
+                Clipboard.setData(ClipboardData(text: text));
+                Navigator.pop(context);
+              },
+            ),
+          ],
+        ),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: SingleChildScrollView(
+            child: SelectableText(
+              text,
+              style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('关闭')),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final list = _filtered;
@@ -343,30 +405,9 @@ class _LogPageState extends State<LogPage> {
                     ),
                   )
                 : ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 8,vertical: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     itemCount: list.length,
-                    itemBuilder: (ctx, i) => InkWell(
-                      onLongPress: () => _copyOne(list[i]),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 2),
-                        child: 
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: Colors.grey.shade100,
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: Colors.black),
-                          ),
-                          child:
-                        SelectableText(
-                          list[i],
-                          style: const TextStyle(
-                            fontSize: 11,
-                            fontFamily: 'monospace',
-                          ),
-                        ),
-                      )),
-                    ),
+                    itemBuilder: (ctx, i) => _buildLogItem(list[i]),
                   ),
           ),
         ],

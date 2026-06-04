@@ -5,11 +5,15 @@ class BRWebBridgeMessage {
     required this.id,
     required this.action,
     this.params = const <String, dynamic>{},
+    this.meta = const <String, dynamic>{},
   });
 
   final String id;
   final String action;
   final Map<String, dynamic> params;
+
+  /// 元信息：H5 版本、分支、平台、时间戳等（由 H5 自动注入）
+  final Map<String, dynamic> meta;
 
   factory BRWebBridgeMessage.fromArgs(List<dynamic> args) {
     if (args.isEmpty) {
@@ -33,6 +37,9 @@ class BRWebBridgeMessage {
       action: json['action']?.toString() ?? '',
       params: Map<String, dynamic>.from(
         json['params'] as Map? ?? const <String, dynamic>{},
+      ),
+      meta: Map<String, dynamic>.from(
+        json['meta'] as Map? ?? const <String, dynamic>{},
       ),
     );
   }

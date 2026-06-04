@@ -3,23 +3,30 @@ export interface BRWebInitialData {
   accessToken?: string
   user?: Record<string, unknown>
   lang?: string
+  appVersion?: string
+  resourceVersion?: string
+  extra?: Record<string, unknown>
   [key: string]: unknown
 }
 
-/** Bridge 请求消息 */
+/** Bridge 请求消息（H5 ↔ Native 双向统一，唯一消息格式） */
 export interface BRWebBridgeMessage {
   id: string
   action: string
   params: Record<string, unknown>
+  meta?: Record<string, unknown>
 }
 
-/** Bridge 响应 */
+/** Bridge 响应（Native → H5 或 H5 → Native，统一响应格式） */
 export interface BRWebBridgeResponse {
   id: string
   ok: boolean
   data?: Record<string, unknown>
   error?: string
 }
+
+/** Native → H5 消息处理器（addNativeListener 注册的回调签名） */
+export type NativeCallHandler = (msg: BRWebBridgeMessage) => BRWebBridgeResponse | void
 
 /** 设备能力: 拍照响应 */
 export interface PhotoResult {

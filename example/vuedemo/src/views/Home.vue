@@ -1,34 +1,36 @@
 <script setup lang="ts">
 import { useBridge, getBRData } from 'br-web-bridge-vue'
-import { computed, ref } from 'vue'
+import { setBridgeMeta } from 'br-web-bridge-vue'
+import { computed, ref, onMounted } from 'vue'
 
 const { logs, call, appendLog } = useBridge()
 const brData = computed(() => getBRData())
 const isLoggedIn = computed(() => !!brData.value.accessToken)
-const userName = computed(() => (brData.value.user as any)?.name ?? '')
-const lang = computed(() => (brData.value.lang as string) || 'zh-CN')
+const userName = computed(() => brData.value.user?.name as string ?? '')
+const lang = computed(() => brData.value.lang || 'zh-CN')
 
-// 收集的待预览文件
-type PickedFile = { path: string; type: string; title?: string; mimeType?: string; size?: number }
-const pickedFiles = ref<PickedFile[]>([])
+// ====== Meta 案例：登录后动态设置 userId/role ======
+const currentUser = ref<{ id: string; name: string } | null>(null)
+const currentRole = ref('viewer')
 
-function collectFile(data: any, defaultType: string) {
-  const file: PickedFile = {
-    path: data.path,
-    type: inferType(data) || defaultType,
-    title: data.name || undefined,
-    mimeType: data.mimeType || undefined,
-    size: data.size || undefined,
-  }
-  // 去重：同路径只保留一个
-  const dup = pickedFiles.value.find(f => f.path === file.path)
-  if (!dup) pickedFiles.value = [...pickedFiles.value, file]
+function simulateLogin() {
+  currentUser.value = { id: '1001', name: '张三' }
+  currentRole.value = 'admin'
+  setBridgeMeta({ userId: '1001', role: 'admin' })
+  appendLog('🔐 已登录，meta 已注入 userId/role')
 }
 
-async function previewAll() {
-  if (pickedFiles.value.length === 0) return
-  await call('device.file.previewMulti', { files: pickedFiles.value, index: 0 })
+function simulateLogout() {
+  currentUser.value = null
+  currentRole.value = 'viewer'
+  setBridgeMeta({ userId: '', role: 'viewer' })
+  appendLog('🔓 已登出，meta 已更新')
 }
+
+// 页面挂载时打一次基础 meta（供业务参考）
+onMounted(() => {
+  appendLog({ meta: '已就绪 (h5Version/platform/appVersion 自动携带)' })
+})
 
 // ====== 文件画廊（Vue 端自建预览） ======
 interface GalleryItem {
@@ -220,6 +222,23 @@ async function requestWebScreenCapture() {
       <button @click="stopRecord">⏹️ 停止录音</button>
       <button @click="deleteFile">🗑️ 删除文件</button>
 
+
+      <!-- Meta 案例 -->
+      <div class="meta-section">
+        <div class="meta-header">
+          <span>Meta 注入 (每请求自动携带)</span>
+          <span class="meta-status" :class="{ active: currentUser }">{{ currentUser ? "已登录" : "未登录" }}</span>
+        </div>
+        <div class="meta-info">
+          <code v-if="currentUser">userId: {{ currentUser.id }}, role: {{ currentRole }}</code>
+          <code v-else style="color:#94a3b8">点击按钮注入 userId/role</code>
+        </div>
+        <div class="meta-actions">
+          <button v-if="!currentUser" class="btn-meta" @click="simulateLogin">模拟登录</button>
+          <button v-else class="btn-meta" @click="simulateLogout">退出</button>
+        </div>
+      </div>
+
       <!-- 文件画廊 -->
       <div v-if="gallery.length" class="gallery-section">
         <div class="gallery-header">
@@ -329,4 +348,14 @@ pre.log { margin-top: 14px; padding: 12px; min-height: 120px; max-height: 200px;
 .viewer-icon { font-size: 64px; }
 .viewer-name { color: white; font-size: 14px; max-width: 80vw; text-align: center; word-break: break-all; }
 .viewer-native-btn { width: auto; height: 40px; padding: 0 24px; background: #2563eb; color: white; border-radius: 8px; font-size: 15px; }
+
+/* Meta 注入 */
+.meta-section { margin: 14px 0; padding: 12px; background: #f0fdf4; border: 1px solid #86efac; border-radius: 8px; }
+.meta-header { display: flex; justify-content: space-between; align-items: center; font-size: 13px; font-weight: 600; margin-bottom: 6px; }
+.meta-status { font-size: 12px; color: #94a3b8; }
+.meta-status.active { color: #16a34a; }
+.meta-info code { font-size: 11px; background: #e2e8f0; padding: 2px 6px; border-radius: 4px; }
+.meta-actions { display: flex; gap: 8px; margin-top: 8px; }
+.btn-meta { width: auto; height: 32px; padding: 0 16px; font-size: 13px; background: #2563eb; color: white; border: none; border-radius: 6px; cursor: pointer; margin: 0; }
+.btn-meta.debug { background: #6b7280; }
 </style>

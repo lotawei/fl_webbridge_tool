@@ -80,11 +80,15 @@ class CallbackBRWebLogger implements BRWebLogger {
 
   @override
   void bridgeRequest(BRWebBridgeMessage message) {
+    final detail = StringBuffer(message.params.toString());
+    if (message.meta.isNotEmpty) {
+      detail.write(' meta=${message.meta}');
+    }
     _log(BRWebLogEntry(
       type: BRWebLogType.request,
       timestamp: DateTime.now(),
       action: message.action,
-      detail: message.params.toString(),
+      detail: detail.toString(),
     ));
   }
 

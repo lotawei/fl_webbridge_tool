@@ -1,4 +1,6 @@
-import { ref, readonly } from 'vue'
+import { ref, readonly, onUnmounted } from 'vue'
+import { addNativeListener, removeNativeListener } from 'br-web-bridge-vue'
+import type { NativeCallHandler } from 'br-web-bridge-vue'
 
 export type AppLifecycleState =
   | 'foreground'
@@ -26,37 +28,26 @@ export function useAppLifecycle() {
   const pageVisible = ref(true)
   const history = ref<LifecycleEntry[]>([])
 
-  function handleNativeCall(payload: { method: string; params: Record<string, any> }) {
-    const { method, params } = payload
-    if (method === 'app.lifecycle') {
-      appState.value = params.state as AppLifecycleState
-      history.value.unshift({ state: params.state, timestamp: params.timestamp, source: 'app' })
+  const handler: NativeCallHandler = (msg) => {
+    if (msg.action === 'app.lifecycle') {
+      appState.value = msg.params.state as AppLifecycleState
+      history.value.unshift({ state: msg.params.state as string, timestamp: msg.params.timestamp as number, source: 'app' })
       if (history.value.length > 20) history.value.pop()
-    } else if (method === 'page.visibility') {
-      pageVisible.value = params.visible as boolean
-      history.value.unshift({ state: params.visible ? 'visible' : 'hidden', timestamp: params.timestamp, source: 'page' })
+    } else if (msg.action === 'page.visibility') {
+      pageVisible.value = msg.params.visible as boolean
+      history.value.unshift({ state: msg.params.visible ? 'visible' : 'hidden', timestamp: msg.params.timestamp as number, source: 'page' })
       if (history.value.length > 20) history.value.pop()
     }
   }
 
-  // 注入到全局 bridge 接收管道
-  if (typeof window !== 'undefined') {
-    const existing = (window as any).BR_WebContainer ?? {}
-    const prevHandler = existing.__nativeCall
-    ;(window as any).BR_WebContainer = {
-      ...existing,
-      __nativeCall(payload: any) {
-        // 先处理生命周期事件
-        if (payload?.method && (payload.method === 'app.lifecycle' || payload.method === 'page.visibility')) {
-          handleNativeCall(payload)
-        }
-        // 再转发给上一个处理器（如果有 useBridge 注册的）
-        if (typeof prevHandler === 'function') {
-          return prevHandler(payload)
-        }
-        return { received: true }
-      },
-    }
+  // 注册到 SDK 全局多监听器（不会覆盖其他 listener）
+  addNativeListener(handler)
+
+  // 组件卸载时自动清理
+  if (typeof onUnmounted === 'function') {
+    onUnmounted(() => {
+      removeNativeListener(handler)
+    })
   }
 
   const label = () => {

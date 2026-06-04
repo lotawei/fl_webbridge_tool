@@ -10,29 +10,31 @@ interface BRWebBridgeMessage {
   id: string
   action: string
   params: Record<string, unknown>
+  meta?: Record<string, unknown>
 }
 
-interface BRWebResponse {
+interface BRWebBridgeResponse {
   id: string
   ok: boolean
-  data?: unknown
+  data?: Record<string, unknown>
   error?: string
-  cancelled?: boolean
-  path?: string
 }
 
 interface BRWebData {
   accessToken?: string
   user?: Record<string, unknown>
   lang?: string
+  appVersion?: string
+  resourceVersion?: string
+  extra?: Record<string, unknown>
   [key: string]: unknown
 }
 
 interface Window {
   __BR_Data__?: BRWebData
   BR_WebContainer: {
-    call: (action: string, params?: Record<string, unknown>) => Promise<BRWebResponse>
-    __nativeCall: (payload: unknown) => { received: boolean }
+    /** Flutter 侧通过 evaluateJavascript 调用，SDK 内部遍历所有 listener */
+    __nativeCall: (payload: any) => BRWebBridgeResponse
   }
   flutter_inappwebview?: {
     callHandler: (name: string, ...args: unknown[]) => Promise<unknown>

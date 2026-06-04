@@ -1,0 +1,961 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>fl_webbridge_tool — 技术架构设计</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<style>
+  :root {
+    --bg: #0f172a;
+    --card: #1e293b;
+    --border: #334155;
+    --text: #e2e8f0;
+    --muted: #94a3b8;
+    --primary: #3b82f6;
+    --accent: #7c3aed;
+    --green: #10b981;
+    --amber: #f59e0b;
+    --red: #ef4444;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.7;
+    padding: 0;
+  }
+
+  /* Cover */
+  .cover {
+    min-height: 100vh;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center;
+    background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #0f172a 100%);
+    position: relative;
+    overflow: hidden;
+  }
+  .cover::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse at 30% 20%, rgba(59,130,246,.15) 0%, transparent 50%),
+                radial-gradient(ellipse at 70% 80%, rgba(124,58,237,.15) 0%, transparent 50%);
+  }
+  .cover h1 {
+    font-size: 3.2rem;
+    font-weight: 800;
+    background: linear-gradient(135deg, #60a5fa, #a78bfa);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 0.5rem;
+    position: relative;
+  }
+  .cover .subtitle {
+    font-size: 1.4rem;
+    color: var(--muted);
+    margin-bottom: 2rem;
+    position: relative;
+  }
+  .cover .badge-row {
+    display: flex; gap: 12px; flex-wrap: wrap; justify-content: center;
+    position: relative;
+  }
+  .cover .badge {
+    padding: 6px 16px; border-radius: 20px;
+    font-size: 0.85rem; font-weight: 600;
+    border: 1px solid var(--border);
+  }
+  .badge.flutter { background: rgba(59,130,246,.15); border-color: rgba(59,130,246,.4); color: #60a5fa; }
+  .badge.vue { background: rgba(16,185,129,.15); border-color: rgba(16,185,129,.4); color: #34d399; }
+  .badge.bridge { background: rgba(124,58,237,.15); border-color: rgba(124,58,237,.4); color: #a78bfa; }
+
+  /* Sections */
+  .content {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 60px 24px;
+  }
+  section {
+    margin-bottom: 80px;
+  }
+  h2 {
+    font-size: 2rem;
+    font-weight: 700;
+    margin-bottom: 1.5rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid var(--border);
+  }
+  h3 {
+    font-size: 1.4rem;
+    font-weight: 600;
+    margin: 2rem 0 1rem;
+    color: var(--primary);
+  }
+  h4 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin: 1.5rem 0 0.8rem;
+    color: var(--muted);
+  }
+
+  /* Cards */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 24px;
+  }
+  .card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; }
+  .card-grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; }
+
+  /* Code */
+  pre {
+    background: #0d1117;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    overflow-x: auto;
+    font-size: 0.85rem;
+    line-height: 1.5;
+    margin: 12px 0;
+  }
+  code {
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 0.85em;
+  }
+  .inline-code {
+    background: rgba(59,130,246,.15);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.85em;
+  }
+
+  /* Tables */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
+    font-size: 0.9rem;
+  }
+  th, td {
+    padding: 10px 14px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+  th {
+    background: var(--card);
+    font-weight: 600;
+    color: var(--primary);
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  td:first-child code {
+    color: var(--green);
+  }
+
+  /* Diagram container */
+  .mermaid {
+    background: #0d1117;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    margin: 24px 0;
+    overflow-x: auto;
+  }
+
+  /* Layers */
+  .layer-box {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--primary);
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin: 8px 0;
+  }
+  .layer-box.sub { margin-left: 24px; border-left-color: var(--accent); }
+  .layer-box.sub2 { margin-left: 48px; border-left-color: var(--muted); }
+  .layer-label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+
+  /* Flow */
+  .flow-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin: 16px 0;
+  }
+  .flow-node {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 20px;
+    text-align: center;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .flow-arrow { color: var(--muted); font-size: 1.2rem; }
+  .flow-node.api { border-color: var(--primary); }
+  .flow-node.bridge { border-color: var(--accent); }
+  .flow-node.h5 { border-color: var(--green); }
+
+  /* Principles */
+  .principle {
+    display: flex; gap: 16px; align-items: flex-start;
+    padding: 20px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    margin-bottom: 12px;
+  }
+  .principle-icon {
+    font-size: 1.5rem;
+    min-width: 40px;
+    text-align: center;
+  }
+
+  /* Tags */
+  .tag {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    margin-right: 4px;
+    margin-bottom: 4px;
+  }
+  .tag.device { background: rgba(59,130,246,.15); color: #60a5fa; }
+  .tag.nav { background: rgba(124,58,237,.15); color: #a78bfa; }
+  .tag.ui { background: rgba(16,185,129,.15); color: #34d399; }
+  .tag.db { background: rgba(245,158,11,.15); color: #fbbf24; }
+  .tag.resource { background: rgba(239,68,68,.15); color: #f87171; }
+
+  /* Two-column */
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+  }
+  @media (max-width: 768px) {
+    .two-col { grid-template-columns: 1fr; }
+    .cover h1 { font-size: 2rem; }
+  }
+
+  /* Decision table */
+  .decision-ok { color: var(--green); }
+  .decision-note { color: var(--muted); font-size: 0.85rem; }
+</style>
+</head>
+<body>
+
+<!-- ===== COVER ===== -->
+<div class="cover">
+  <h1>fl_webbridge_tool</h1>
+  <p class="subtitle">Flutter 做壳 + H5 做业务 · 统一 Bridge 双向通信插件框架</p>
+  <div class="badge-row">
+    <span class="badge flutter">Flutter Plugin</span>
+    <span class="badge bridge">WebView Bridge</span>
+    <span class="badge vue">Vue3 SDK</span>
+    <span class="badge flutter">Android + iOS</span>
+  </div>
+</div>
+
+<div class="content">
+
+<!-- ===== 设计理念 ===== -->
+<section>
+  <h2>🎯 设计理念</h2>
+  <div class="card-grid">
+    <div class="principle">
+      <div class="principle-icon">🏗️</div>
+      <div>
+        <strong>Native 管容器，H5 管内容</strong>
+        <p style="color:var(--muted);margin-top:4px">TabBar / NavBar / 路由 / 权限 / 生命周期由 Flutter 原生控制，H5 页面负责高频变化的业务逻辑</p>
+      </div>
+    </div>
+    <div class="principle">
+      <div class="principle-icon">🔌</div>
+      <div>
+        <strong>默认能力开箱可用</strong>
+        <p style="color:var(--muted);margin-top:4px">相机/相册/录音/文件/网络/系统信息 等 30+ action 内置实现，业务可直接使用或按需扩展</p>
+      </div>
+    </div>
+    <div class="principle">
+      <div class="principle-icon">🔗</div>
+      <div>
+        <strong>责任链模式扩展</strong>
+        <p style="color:var(--muted);margin-top:4px">业务自定义 Handler 优先匹配 → 默认 Handler 兜底，插拔式组合，互不侵入</p>
+      </div>
+    </div>
+    <div class="principle">
+      <div class="principle-icon">📦</div>
+      <div>
+        <strong>H5 侧 NPM 包封装</strong>
+        <p style="color:var(--muted);margin-top:4px"><code>br-web-bridge-vue</code> NPM 包提供 Vue3 Composable + TS 类型，一行 import 即可调用所有 Native 能力</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== 总体架构图 ===== -->
+<section>
+  <h2>🏛️ 总体架构</h2>
+  <div class="mermaid">
+graph TB
+    subgraph S1["App Shell — Flutter 宿主"]
+        direction LR
+        APP["宿主 App"]
+        TAB["TabBar / NavBar"]
+        ROUTE["BRWebNavigator<br/>路由注册表"]
+    end
+
+    subgraph S2["Plugin Layer — fl_webbridge_tool"]
+        direction TB
+        CONTAINER["BRWebContainerPage<br/>WebView 容器"]
+
+        subgraph BRIDGE_BOX["通信层"]
+            BRIDGE["BRWebBridge<br/>双向通信桥"]
+        end
+
+        subgraph HANDLER_BOX["能力层 — 责任链模式"]
+            HANDLER["BRWebCapabilityHandler"]
+            DEFAULT["DefaultBRWebCapabilityHandler<br/>30+ 内置 Action"]
+            DEV["BRWebDevGuard<br/>开发期合约检查"]
+        end
+    end
+
+    subgraph S3["Platform Layer"]
+        INAPP["flutter_inappwebview<br/>WebView 内核"]
+        NATIVE["原生平台能力<br/>相机/相册/录音/文件/权限"]
+    end
+
+    subgraph S4["H5 Layer — Vue3"]
+        SDK["br-web-bridge-vue<br/>NPM 包"]
+        COMPOSABLE["useBridge()<br/>Vue3 Composable"]
+        PAGES["业务页面<br/>Home/Device/Profile/..."]
+    end
+
+    APP --> TAB --> ROUTE
+    ROUTE --> CONTAINER
+    CONTAINER --> BRIDGE
+    CONTAINER --> HANDLER
+    BRIDGE <-->|"JS Bridge<br/>callHandler"| INAPP
+    INAPP <-->|WebView| SDK
+    HANDLER --> DEFAULT
+    HANDLER --> DEV
+    DEFAULT --> NATIVE
+    SDK --> COMPOSABLE --> PAGES
+
+    style S1 fill:#1e293b,stroke:#475569,color:#e2e8f0
+    style S2 fill:#1e1b4b,stroke:#7c3aed,color:#e2e8f0
+    style S3 fill:#1e293b,stroke:#d97706,color:#e2e8f0
+    style S4 fill:#1e293b,stroke:#10b981,color:#e2e8f0
+    style APP fill:#2563eb,color:#fff
+    style BRIDGE fill:#7c3aed,color:#fff
+    style DEFAULT fill:#7c3aed,color:#fff
+    style CONTAINER fill:#7c3aed,color:#fff
+    style SDK fill:#059669,color:#fff
+    style NATIVE fill:#d97706,color:#fff
+  </div>
+</section>
+
+<!-- ===== 分层详解 ===== -->
+<section>
+  <h2>📐 分层架构详解</h2>
+
+  <div class="layer-box">
+    <div class="layer-label">宿主 App 层</div>
+    <strong>TabBar / NavBar / 登录态 / 路由 / 全局日志</strong>
+    <p style="color:var(--muted)">App Shell 负责所有原生 UI 框架，通过 BRWebNavigator 注册路由，通过 BRWebContainerPage 加载 H5 页面</p>
+  </div>
+
+  <div class="layer-box">
+    <div class="layer-label">Plugin 公共 API 层</div>
+    <code style="color:var(--text)">fl_webbridge_tool.dart</code> — 16 个模块统一导出
+  </div>
+
+  <div class="layer-box">
+    <div class="layer-label">容器 & 通信层</div>
+    <strong>BRWebContainerPage</strong> — StatefulWidget，管理 WebView 生命周期<br/>
+    <strong>BRWebBridge</strong> — 双向通信桥，管理 JS Handler + Native→H5 push<br/>
+    <strong>BRWebNavigator</strong> — 路由注册表，支持 WebView 和原生页面混排
+  </div>
+
+  <div class="layer-box">
+    <div class="layer-label">能力处理层 — 责任链模式</div>
+    <code>BRWebCapabilityHandler</code> → <code>CompositeBRWebCapabilityHandler</code>
+    <div class="layer-box sub">
+      ├── <strong>业务自定义 Handler</strong> — 优先匹配（user.getToken / payment.pay / biz.scanQR）<br/>
+      └── <strong>DefaultBRWebCapabilityHandler</strong> — 30+ 内置 action 兜底
+    </div>
+  </div>
+
+  <div class="layer-box">
+    <div class="layer-label">基础服务层</div>
+    <code>BRWebLogger</code> · <code>BRWebPermissionHelper</code> · <code>BRWebNetworkMonitor</code> · <code>NativeDataBaseManager&lt;T&gt;</code> · <code>BRWebResourceManager</code> · <code>BRWebLifecycle</code> · <code>BRWebSystemInfo</code> · <code>BRWebDevGuard</code>
+  </div>
+
+  <div class="layer-box">
+    <div class="layer-label">平台桥接层（第三方依赖）</div>
+    <code>flutter_inappwebview</code> · <code>image_picker</code> · <code>record</code> · <code>sqflite</code> · <code>connectivity_plus</code> · <code>device_info_plus</code> · <code>permission_handler</code> · <code>file_picker</code> · <code>path_provider</code> · <code>image_gallery_saver</code> · <code>video_player</code> · <code>audioplayers</code>
+  </div>
+
+  <div class="layer-box">
+    <div class="layer-label">iOS / Android 原生</div>
+    Swift Plugin · Kotlin Plugin · 权限声明 · 平台注册
+  </div>
+</section>
+
+<!-- ===== Bridge 协议 ===== -->
+<section>
+  <h2>🔌 Bridge 通信协议</h2>
+
+  <div class="two-col">
+    <div class="card">
+      <h4>H5 → Native（统一消息模型）</h4>
+      <pre><code>window.flutter_inappwebview.callHandler(
+  'BR_WebNativeBridge',
+  {
+    id: 'req_1712345678_abc',
+    action: 'device.camera.takePhoto',
+    params: {
+      quality: 80,
+      maxWidth: 1600,
+      saveToGallery: true
+    },
+    meta: {                    // 自动注入
+      h5Version: '2.0.1',
+      platform: 'ios',
+      appVersion: '1.0.0'
+    }
+  }
+)</code></pre>
+    </div>
+
+    <div class="card">
+      <h4>Native 响应</h4>
+      <pre><code>// ✅ 成功
+{
+  "id": "req_1712...",
+  "ok": true,
+  "data": {
+    "path": "/tmp/xxx.jpg",
+    "name": "photo.jpg",
+    "mimeType": "image/jpeg",
+    "size": 204800
+  }
+}
+
+// ❌ 失败
+{
+  "id": "req_1712...",
+  "ok": false,
+  "error": "permission_denied"
+}</code></pre>
+    </div>
+  </div>
+
+  <div class="card">
+    <h4>Native → H5（统一推送，同格式）</h4>
+    <pre><code>// Dart — 与 H5→Native 相同格式
+BRWebBridge.callWeb('container.lifecycle', {
+  type: 'loadStop', url: '...'
+});
+// → { id: \"n_xxx\", action: \"container.lifecycle\", params: {...} }
+
+// H5 注册接收 + 可返回响应
+onNativeCall((msg) => {
+  // msg: { id, action, params, meta? }
+  if (msg.action === 'container.lifecycle') {
+    handleLifecycle(msg.params);
+  }
+  // 可返回响应给 Native
+  return { id: msg.id, ok: true, data: {} };
+});</code></pre>
+  </div>
+
+  <div class="card">
+    <h4>Action 命名规范：<code style="color:var(--green)">namespace.entity.verb</code></h4>
+    <p>
+      <span class="tag device">device.camera.takePhoto</span>
+      <span class="tag device">device.camera.pickPhoto</span>
+      <span class="tag device">device.camera.takeVideo</span>
+      <span class="tag device">device.audio.startRecord</span>
+      <span class="tag device">device.file.preview</span>
+      <span class="tag device">device.network.status</span>
+      <span class="tag device">device.system.info</span>
+      <span class="tag nav">navigation.navigateTo</span>
+      <span class="tag nav">navigation.setTitle</span>
+      <span class="tag ui">ui.hideTabBar</span>
+      <span class="tag ui">ui.showTabBar</span>
+      <span class="tag db">database.workOrder.query</span>
+      <span class="tag db">database.workOrder.insert</span>
+      <span class="tag resource">resource.checkUpdate</span>
+      <span class="tag resource">resource.startUpdate</span>
+    </p>
+  </div>
+</section>
+
+<!-- ===== 责任链模式 ===== -->
+<section>
+  <h2>⛓️ 核心模式：责任链</h2>
+  <div class="mermaid">
+sequenceDiagram
+    participant H5
+    participant Bridge as BRWebBridge
+    participant Chain as CompositeBRWebCapabilityHandler
+    participant Biz as 业务 Handler
+    participant Default as DefaultBRWebCapabilityHandler
+    participant Camera as 系统相机
+
+    Note over H5: H5 调用自定义能力
+
+    H5->>Bridge: callHandler('user.getToken', params)
+    Bridge->>Chain: handle(context, msg)
+    Chain->>Biz: handle(context, msg)
+    Biz-->>Chain: { token: 'xxx' }
+    Note over Chain: ✅ 匹配，直接返回
+    Chain-->>Bridge: data
+    Bridge-->>H5: { ok: true, data: { token: 'xxx' } }
+
+    Note over H5: H5 调用设备能力
+
+    H5->>Bridge: callHandler('device.camera.takePhoto', params)
+    Bridge->>Chain: handle(context, msg)
+    Chain->>Biz: handle(context, msg)
+    Biz-->>Chain: notHandled
+    Note over Chain: ⏭️ 不匹配，放行
+    Chain->>Default: handle(context, msg)
+    Default->>Camera: 打开相机
+    Camera-->>Default: XFile
+    Default-->>Chain: { path, name, mimeType, size }
+    Chain-->>Bridge: data
+    Bridge-->>H5: { ok: true, data: { path: '...' } }
+  </div>
+
+  <div class="card-grid">
+    <div class="card">
+      <h4>接口定义</h4>
+      <pre><code>abstract interface class BRWebCapabilityHandler {
+  Future&lt;Object?&gt; handle(
+    BuildContext context,
+    BRWebBridgeMessage message,
+  );
+}</code></pre>
+    </div>
+    <div class="card">
+      <h4>组装使用</h4>
+      <pre><code>BRWebContainerPage(
+  capabilityHandler:
+    CompositeBRWebCapabilityHandler([
+      AppCapabilityHandler(),
+      DefaultBRWebCapabilityHandler(),
+    ]),
+)</code></pre>
+    </div>
+  </div>
+
+  <div class="card">
+    <h4>自定义能力示例</h4>
+    <pre><code>class AppCapabilityHandler implements BRWebCapabilityHandler {
+  Future&lt;Object?&gt; handle(BuildContext context, BRWebBridgeMessage msg) {
+    return switch (msg.action) {
+      'user.getToken'   => {'token': 'xxx'},
+      'payment.pay'     => _pay(msg.params),
+      _                 => Future.value(BRWebCapabilityHandlerResult.notHandled),
+    };
+  }
+}</code></pre>
+  </div>
+</section>
+
+<!-- ===== 数据注入 ===== -->
+<section>
+  <h2>📥 数据注入（无 Bridge 调用）</h2>
+
+  <div class="mermaid">
+sequenceDiagram
+    participant Flutter
+    participant INAPP as flutter_inappwebview
+    participant H5 as Vue3 页面
+
+    Note over Flutter: BRWebContainerPage 构建
+
+    Flutter->>INAPP: initialUserScripts AT_DOCUMENT_START<br/>注入 window.__BR_Data__ = {...}
+    Note over INAPP: 在所有 JS 之前执行
+
+    INAPP-->>H5: 页面加载
+
+    H5->>H5: const data = getBRData()<br/>同步读取 token / user / lang
+    Note over H5: 无需 bridge 调用，零延迟
+
+    Note over H5: SPA 路由跳转时
+
+    H5->>INAPP: onLoadStart 触发
+    INAPP->>INAPP: 补充注入 window.__BR_Data__
+    INAPP->>H5: Vue Router 新页面可读取
+  </div>
+
+  <div class="card">
+    <pre><code>// Flutter 侧
+BRWebContainerPage(
+  initialData: BRWebInitialData(
+    accessToken: 'eyJ...',
+    userData: {'id': '1001', 'name': '张三'},
+    lang: 'zh-CN',
+    extra: {'appVersion': '1.2.3'},
+  ),
+)
+
+// H5 侧
+import { getBRData } from 'br-web-bridge-vue'
+const { accessToken, user, lang } = getBRData()  // window.__BR_Data__</code></pre>
+  </div>
+</section>
+
+<!-- ===== Vue3 SDK ===== -->
+<section>
+  <h2>📦 Vue3 SDK：br-web-bridge-vue</h2>
+
+  <div class="two-col">
+    <div>
+      <h4>NPM 包结构</h4>
+      <pre><code>packages/br-web-bridge-vue/
+├── package.json
+│   peerDependencies: vue ^3.4+
+└── src/
+    ├── index.ts       # 统一导出
+    ├── bridge.ts      # brCall / getBRData
+    │                  # waitForBridge / onNativeCall
+    ├── useBridge.ts   # Vue3 Composable
+    ├── plugin.ts      # Vue Plugin
+    └── types.ts       # TS 类型定义</code></pre>
+    </div>
+
+    <div>
+      <h4>接入示例</h4>
+      <pre><code>// 方式 1：Composable（推荐）
+import { useBridge, getBRData }
+  from 'br-web-bridge-vue'
+
+const {
+  takePhoto, navigateTo,
+  hideTabBar, pickFile
+} = useBridge()
+
+const { accessToken } = getBRData()
+
+// 方式 2：底层 API
+import { brCall }
+  from 'br-web-bridge-vue'
+
+const r = await brCall(
+  'device.camera.takePhoto',
+  { quality: 80 }
+)</code></pre>
+    </div>
+  </div>
+
+  <h4>Vue3 Demo 9 个演示页面</h4>
+  <div class="card-grid-3">
+    <div class="card"><strong>🏠 Home</strong><br/><span class="tag device">设备能力入口</span></div>
+    <div class="card"><strong>🧭 Nav</strong><br/><span class="tag nav">导航跳转演示</span></div>
+    <div class="card"><strong>👤 Profile</strong><br/><span class="tag device">数据注入读取</span></div>
+    <div class="card"><strong>📋 WorkOrders</strong><br/><span class="tag db">工单 CRUD</span></div>
+    <div class="card"><strong>📷 Device</strong><br/><span class="tag device">拍照/录像/录音</span></div>
+    <div class="card"><strong>📡 DeviceCapabilities</strong><br/><span class="tag device">网络/系统信息</span></div>
+    <div class="card"><strong>📁 FileManager</strong><br/><span class="tag device">文件预览/删除</span></div>
+    <div class="card"><strong>🌐 Resource</strong><br/><span class="tag resource">资源包管理</span></div>
+    <div class="card"><strong>🧭 Navigation</strong><br/><span class="tag nav">路由跳转</span></div>
+  </div>
+</section>
+
+<!-- ===== 能力矩阵 ===== -->
+<section>
+  <h2>📊 完整能力矩阵</h2>
+
+  <h4>设备能力（14 个 action）</h4>
+  <table>
+    <thead><tr><th>Action</th><th>说明</th><th>权限</th></tr></thead>
+    <tbody>
+      <tr><td><code>device.camera.takePhoto</code></td><td>拍照（默认存系统相册）</td><td>CAMERA</td></tr>
+      <tr><td><code>device.camera.pickPhoto</code></td><td>从相册选照片</td><td>PHOTOS</td></tr>
+      <tr><td><code>device.camera.pickMultiPhoto</code></td><td>相册多选</td><td>PHOTOS</td></tr>
+      <tr><td><code>device.camera.takeVideo</code></td><td>录像（默认存系统相册）</td><td>CAMERA + MIC</td></tr>
+      <tr><td><code>device.camera.pickVideo</code></td><td>从相册选视频</td><td>PHOTOS</td></tr>
+      <tr><td><code>device.file.pick</code></td><td>文件选择（支持多选）</td><td>-</td></tr>
+      <tr><td><code>device.file.preview</code></td><td>全屏预览（图/视频/音频）</td><td>-</td></tr>
+      <tr><td><code>device.file.previewMulti</code></td><td>多文件 PageView 滑动预览</td><td>-</td></tr>
+      <tr><td><code>device.file.delete</code></td><td>删除本地文件</td><td>-</td></tr>
+      <tr><td><code>device.file.readAsDataUrl</code></td><td>读文件为 base64</td><td>-</td></tr>
+      <tr><td><code>device.audio.startRecord</code></td><td>开始录音</td><td>MICROPHONE</td></tr>
+      <tr><td><code>device.audio.stopRecord</code></td><td>停止录音</td><td>-</td></tr>
+      <tr><td><code>device.network.status</code></td><td>查询网络状态（wifi/mobile/offline）</td><td>-</td></tr>
+      <tr><td><code>device.system.info</code></td><td>设备/系统/App版本信息</td><td>-</td></tr>
+    </tbody>
+  </table>
+
+  <h4>导航 & UI（6 个 action）</h4>
+  <table>
+    <thead><tr><th>Action</th><th>说明</th></tr></thead>
+    <tbody>
+      <tr><td><code>navigation.navigateTo</code></td><td>跳转到已注册路由</td></tr>
+      <tr><td><code>navigation.goBack</code></td><td>返回上一页</td></tr>
+      <tr><td><code>navigation.setTitle</code></td><td>修改页面标题</td></tr>
+      <tr><td><code>ui.hideTabBar</code></td><td>隐藏底部 TabBar</td></tr>
+      <tr><td><code>ui.showTabBar</code></td><td>显示底部 TabBar</td></tr>
+      <tr><td><code>container.close</code></td><td>关闭当前容器页面</td></tr>
+    </tbody>
+  </table>
+
+  <h4>离线资源包 & 数据库</h4>
+  <table>
+    <thead><tr><th>Action</th><th>说明</th></tr></thead>
+    <tbody>
+      <tr><td><code>resource.getStatus</code></td><td>获取资源状态（版本/进度/已安装列表）</td></tr>
+      <tr><td><code>resource.checkUpdate</code></td><td>检查服务端新版本</td></tr>
+      <tr><td><code>resource.startUpdate</code></td><td>开始下载资源包</td></tr>
+      <tr><td><code>resource.cancelUpdate</code></td><td>取消下载</td></tr>
+      <tr><td><code>resource.switchTo</code></td><td>切换到指定版本</td></tr>
+      <tr><td><code>database.workOrder.*</code></td><td>工单 CRUD（query/getById/insert/update/delete）</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ===== 全链路日志 ===== -->
+<section>
+  <h2>📋 全链路日志系统</h2>
+
+  <table>
+    <thead><tr><th>图标</th><th>类型</th><th>来源</th><th>说明</th></tr></thead>
+    <tbody>
+      <tr><td>📡</td><td>lifecycle</td><td>WebView 容器</td><td>created/loadStart/loadStop/progress/titleChanged</td></tr>
+      <tr><td>⬆️ REQ</td><td>request</td><td>H5 → Native</td><td>Bridge 请求 + action + params</td></tr>
+      <tr><td>⬇️ RES</td><td>response</td><td>Native → H5</td><td>Bridge 响应 + 耗时</td></tr>
+      <tr><td>📜</td><td>console</td><td>H5</td><td>console.log/error/warn 捕获</td></tr>
+      <tr><td>💥</td><td>error</td><td>H5</td><td>JS 运行时错误（onReceivedError）</td></tr>
+      <tr><td>🎨 UI</td><td>ui</td><td>H5 → Native</td><td>hideTabBar / showTabBar 请求</td></tr>
+      <tr><td>🦴</td><td>native</td><td>业务层</td><td>自定义 Native 日志</td></tr>
+      <tr><td>🔌</td><td>bridgeError</td><td>Bridge 层</td><td>通信异常 + 完整 StackTrace</td></tr>
+    </tbody>
+  </table>
+
+  <div class="card">
+    <h4>使用方式</h4>
+    <pre><code>// Callback 模式——接入任意 UI
+final logger = CallbackBRWebLogger(
+  onLog: (entry) => logPage.add(entry.toString())
+);
+
+// 全局单例——任意位置写入/订阅
+BRWebGlobalLog.log('自定义消息');
+BRWebGlobalLog.adapter;  // → BRWebLogger 兼容适配器
+
+// 内置工业级日志查看页
+BRWebGlobalLogPage()  // 过滤 + 搜索 + 颜色编码 + 清空</code></pre>
+  </div>
+</section>
+
+<!-- ===== 关键设计决策 ===== -->
+<section>
+  <h2>⚡ 关键设计决策与踩坑</h2>
+
+  <table>
+    <thead><tr><th>决策</th><th>原因</th></tr></thead>
+    <tbody>
+      <tr>
+        <td class="decision-ok">flutter_inappwebview 而非 webview_flutter</td>
+        <td>需要 <code>addJavaScriptHandler</code> 支持双向通信</td>
+      </tr>
+      <tr>
+        <td class="decision-ok">责任链模式 而非 switch 注册</td>
+        <td>业务可插拔扩展，默认兜底</td>
+      </tr>
+      <tr>
+        <td class="decision-ok">initialUserScripts AT_DOCUMENT_START</td>
+        <td>保证同步读取，非 <code>evaluateJavascript</code> fire-and-forget</td>
+      </tr>
+      <tr>
+        <td class="decision-ok">ImagePicker 一次性选取 + maxWidth 控制</td>
+        <td>避免循环重试导致选图器反复弹出</td>
+      </tr>
+      <tr>
+        <td class="decision-ok">错误必须 throw 而非 return error map</td>
+        <td>Bridge 通过 try/catch 区分 ok/fail，return 会被包成 data</td>
+      </tr>
+      <tr>
+        <td class="decision-ok">媒体四字段统一</td>
+        <td>path/name/mimeType/size 统一，前端类型推断可用</td>
+      </tr>
+      <tr>
+        <td class="decision-ok">onLoadStart 补充注入</td>
+        <td>SPA 路由跳转不触发 AT_DOCUMENT_START</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h4>常见陷阱速查</h4>
+  <div class="card-grid-3">
+    <div class="card">
+      <strong>⚠️ handler 必须注入</strong>
+      <p class="decision-note">不传时内部创建空实例，所有 manager 为 null</p>
+    </div>
+    <div class="card">
+      <strong>⚠️ setState 在 build 阶段</strong>
+      <p class="decision-note">需判断 schedulerPhase 并推迟到 postFrameCallback</p>
+    </div>
+    <div class="card">
+      <strong>⚠️ Vue bridge 重入循环</strong>
+      <p class="decision-note">需要 processing 防重入锁 + 按钮 disabled</p>
+    </div>
+    <div class="card">
+      <strong>⚠️ iOS WKWebView dealloc</strong>
+      <p class="decision-note">5 个强引用逐一断开 + loadHTMLString("about:blank")</p>
+    </div>
+    <div class="card">
+      <strong>⚠️ 网络状态首查 'unknown'</strong>
+      <p class="decision-note">需调 checkNow() 实时查询</p>
+    </div>
+    <div class="card">
+      <strong>⚠️ 错误 return vs throw</strong>
+      <p class="decision-note">return error map → 被包成 {ok:true, data:{error:...}}</p>
+    </div>
+  </div>
+</section>
+
+<!-- ===== 快速接入 ===== -->
+<section>
+  <h2>🚀 快速接入</h2>
+
+  <div class="card">
+    <pre><code>// 1. pubspec.yaml
+dependencies:
+  fl_webbridge_tool:
+    git:
+      url: ssh://git/fl_webbridge_tool.git
+      ref: v0.1.0
+
+// 2. 注册路由
+void main() {
+  BRWebNavigator.register('/home', BRWebRouteConfig(
+    url: 'https://domain.com/home', title: '首页',
+  ));
+  runApp(MyApp());
+}
+
+// 3. 使用容器页面
+BRWebContainerPage(
+  url: 'https://domain.com/page',
+  capabilityHandler: CompositeBRWebCapabilityHandler([
+    MyCustomHandler(),
+    DefaultBRWebCapabilityHandler(),
+  ]),
+  logger: DebugBRWebLogger(),
+  initialData: BRWebInitialData(accessToken: token),
+)
+
+// 4. H5 侧接入 NPM 包
+// npm install br-web-bridge-vue
+import { useBridge, getBRData } from 'br-web-bridge-vue'
+const { takePhoto } = useBridge()
+const photo = await takePhoto({ quality: 80 })</code></pre>
+  </div>
+
+  <div class="card-grid-3">
+    <div class="card">
+      <h4>🌐 在线模式</h4>
+      <pre><code>BRWebContainerPage(
+  url: 'https://domain.com/page',
+)</code></pre>
+    </div>
+    <div class="card">
+      <h4>📦 离线模式</h4>
+      <pre><code>// 1. 构建内联包
+bash build_vue_inline.sh
+
+// 2. 加载 asset
+BRWebContainerPage(
+  initialFile:
+    'assets/h5/index.html',
+)</code></pre>
+    </div>
+    <div class="card">
+      <h4>🔥 Dev 热重载</h4>
+      <pre><code>// terminal
+cd example/vuedemo
+npm install && npm run dev
+
+// Flutter
+BRWebContainerPage(
+  url: 'http://localhost:5173',
+)</code></pre>
+    </div>
+  </div>
+</section>
+
+<!-- ===== 总结 ===== -->
+<section>
+  <h2>✨ 总结</h2>
+  <div class="card-grid">
+    <div class="card">
+      <h4>🧩 架构</h4>
+      <p>Flutter 壳 + H5 业务 + Bridge 连接，<strong>分层清晰、职责明确</strong></p>
+    </div>
+    <div class="card">
+      <h4>🔌 通信</h4>
+      <p>统一 Bridge 协议，<strong>命名规范 namespace.entity.verb</strong></p>
+    </div>
+    <div class="card">
+      <h4>⛓️ 扩展</h4>
+      <p>责任链模式，<strong>业务优先、默认兜底</strong>，插拔式组合</p>
+    </div>
+    <div class="card">
+      <h4>📦 SDK</h4>
+      <p>Vue3 NPM 包封装，<strong>一行 import 调用所有能力</strong></p>
+    </div>
+    <div class="card">
+      <h4>📋 可观测</h4>
+      <p>全链路日志 + StackTrace，<strong>8 种类型覆盖全流程</strong></p>
+    </div>
+    <div class="card">
+      <h4>🛡️ 健壮</h4>
+      <p>开发期合约检查、权限三级处理、<strong>12 个已知陷阱文档化</strong></p>
+    </div>
+  </div>
+</section>
+
+</div>
+
+<script>
+mermaid.initialize({
+  startOnLoad: true,
+  theme: 'dark',
+  themeVariables: {
+    primaryColor: '#2563eb',
+    primaryTextColor: '#e2e8f0',
+    primaryBorderColor: '#3b82f6',
+    secondaryColor: '#7c3aed',
+    tertiaryColor: '#1e293b',
+    lineColor: '#475569',
+  },
+  sequence: {
+    useMaxWidth: true,
+    mirrorActors: false,
+  },
+  flowchart: {
+    useMaxWidth: true,
+  },
+});
+</script>
+
+</body>
+</html>

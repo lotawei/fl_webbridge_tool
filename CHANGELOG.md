@@ -1,4 +1,28 @@
-## v0.2.0 (2026-05-27)
+## v0.3.0 (2026-06-04)
+
+### 新增 / 架构变更
+
+- **通信模型统一**：双向统一为 `{id, action, params, meta?}` → `{id, ok, data/error}`，不再有 `{method, params}` 旧格式
+- **meta 元信息**：H5 每次 `brCall` 自动注入 h5Version/h5Branch/platform/appVersion/lang，`setBridgeMeta()` 可扩展
+- **onNativeCall 支持响应**：H5 可返回 `{ok, data/error}` 给 Native
+- **统一 TS 类型**：删除 `NativeCallMessage`，全用 `BRWebBridgeMessage`
+- **`BRWebInitialData` 类型扩展**：新增 `appVersion` / `resourceVersion` / `extra` 字段
+
+### 修复
+
+- 图片选择器死循环 → 移除 `_pickWithMaxSize` 循环重试逻辑
+- LogPage 长日志 → maxLines: 3 + 点击弹窗查看详情
+- 资源去重：`_loadManifest` 按路径去重 + `installedVersions` 自动排序
+- `_safeSetState()` + schedulerPhase 检查，防止 build 阶段 setState 崩溃
+- 音频 `stopRecord` 返回结构统一（含 mimeType/name/size）
+- 网络状态首次查询改为 `checkNow()` 实时获取
+- `window.__BR_Data__.accessToken` TypeScript 类型完整性
+
+### 改进
+
+- `BRWebGlobalLog.maxCapacity = 2000` 防止 OOM
+- LogPage 操作：过滤 + 长按复制 + 长日志弹窗详情 + 全选复制 + 清空确认
+- DB 错误走 `throw` → bridge 返回 `{ok:false, error}`，前端可正确展示
 
 ### 新增
 

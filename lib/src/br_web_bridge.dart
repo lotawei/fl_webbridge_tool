@@ -44,9 +44,15 @@ class BRWebBridge {
     );
   }
 
-  Future<dynamic> callWeb(String method, [Map<String, dynamic>? params]) async {
+  static int _seq = 0;
+  static String _nextId() => '${DateTime.now().microsecondsSinceEpoch}_n_${(++_seq).toRadixString(36)}';
+
+  /// Native → H5 调用（统一消息模型）
+  /// 发送 `{id, action, params}`，H5 可通过 onNativeCall 接收
+  Future<dynamic> callWeb(String action, [Map<String, dynamic>? params]) async {
     final payload = jsonEncode(<String, dynamic>{
-      'method': method,
+      'id': _nextId(),
+      'action': action,
       'params': params ?? const <String, dynamic>{},
     });
     return _controller?.evaluateJavascript(

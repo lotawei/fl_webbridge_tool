@@ -4,6 +4,8 @@
 
     <div class="card" v-if="brData.accessToken">
       <div class="row"><span class="label">Token</span><span class="value">{{ maskedToken }}</span></div>
+      <div class="row"><span class="label">AccessToken</span><span class="value">{{ str((brData.user?.name)) }}</span></div>
+      
       <div class="row"><span class="label">用户</span><span class="value">{{ str(obj(brData.user).name) }}</span></div>
       <div class="row"><span class="label">UserID</span><span class="value">{{ str(obj(brData.user).id) }}</span></div>
       <div class="row"><span class="label">语言</span><span class="value">{{ str(brData.lang) }}</span></div>
@@ -23,6 +25,8 @@ import { computed } from 'vue'
 import { getBRData } from 'br-web-bridge-vue'
 
 const brData = computed(() => getBRData())
+  
+
 
 const maskedToken = computed(() => {
   const t = brData.value.accessToken as string | undefined
